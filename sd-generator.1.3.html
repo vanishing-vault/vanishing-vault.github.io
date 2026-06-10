@@ -1,0 +1,3255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Site & Dungeon Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1a1208;
+    --parchment: #f5eed8;
+    --parchment-dark: #e8dfc0;
+    --parchment-mid: #ede3c4;
+    --accent: #8b2e0a;
+    --accent-light: #c4520f;
+    --gold: #9a7c2e;
+    --gold-light: #c4a84a;
+    --muted: #6b5c3e;
+    --border: #c4a97a;
+    --shadow: rgba(26,18,8,0.18);
+
+    --feature-color: #2a5c8a;
+    --danger-color: #8b2e0a;
+    --treasure-color: #9a7c2e;
+    --entrance-color: #2a6e3f;
+
+    --node-size: 22px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--ink);
+    font-family: 'Crimson Pro', Georgia, serif;
+    color: var(--ink);
+    min-height: 100vh;
+    background-image:
+      radial-gradient(ellipse at 20% 10%, #2a1a08 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 90%, #1a0a04 0%, transparent 60%);
+  }
+
+  /* ── HEADER ── */
+  header {
+    text-align: center;
+    padding: 1.5rem 1rem 0.75rem;
+    position: relative;
+  }
+  header h1 {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(1.4rem, 5vw, 2.2rem);
+    font-weight: 700;
+    color: var(--gold-light);
+    letter-spacing: 0.12em;
+    text-shadow: 0 2px 12px rgba(154,124,46,0.4);
+  }
+  header p {
+    color: var(--parchment-dark);
+    font-style: italic;
+    font-size: 0.9rem;
+    opacity: 0.7;
+    margin-top: 0.2rem;
+  }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 0;
+    margin: 1rem auto 0;
+    max-width: 500px;
+    padding: 0 1rem;
+  }
+  .tab-btn {
+    flex: 1;
+    background: transparent;
+    border: 1px solid var(--border);
+    border-bottom: none;
+    color: var(--parchment-dark);
+    font-family: 'Cinzel', serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.1em;
+    padding: 0.6rem 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    opacity: 0.6;
+  }
+  .tab-btn:first-child { border-radius: 6px 0 0 0; }
+  .tab-btn:last-child  { border-radius: 0 6px 0 0; }
+  .tab-btn.active {
+    background: var(--parchment);
+    color: var(--ink);
+    opacity: 1;
+    font-weight: 600;
+  }
+  .tab-btn:hover:not(.active) { opacity: 0.85; }
+
+  /* ── MAIN PANEL ── */
+  .panel {
+    background: var(--parchment);
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    max-width: 900px;
+    margin: 0 auto;
+    border-radius: 0 0 8px 8px;
+    border: 1px solid var(--border);
+    border-top: none;
+    padding: 1.25rem;
+    min-height: 60vh;
+  }
+
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  /* ── CONTROLS BAR ── */
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .btn {
+    font-family: 'Cinzel', serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    padding: 0.5rem 1rem;
+    border: 1.5px solid var(--accent);
+    background: var(--accent);
+    color: var(--parchment);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--accent-light); border-color: var(--accent-light); }
+  .btn.secondary {
+    background: transparent;
+    color: var(--accent);
+  }
+  .btn.secondary:hover { background: var(--accent); color: var(--parchment); }
+
+  .toggle-label {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.82rem;
+    color: var(--muted);
+    cursor: pointer;
+    margin-left: auto;
+    user-select: none;
+  }
+  .toggle-label input[type="checkbox"] {
+    accent-color: var(--accent);
+    width: 14px; height: 14px;
+  }
+
+  /* ── LAYOUT: diagram + panel ── */
+  .generator-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    align-items: start;
+  }
+  @media (max-width: 640px) {
+    .generator-layout { grid-template-columns: 1fr; }
+  }
+
+  /* ── CANVAS CONTAINER ── */
+  .canvas-wrap {
+    position: relative;
+    background: var(--parchment-mid);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    aspect-ratio: 1 / 1;
+  }
+  .canvas-wrap canvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+  .canvas-empty {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-style: italic;
+    font-size: 0.9rem;
+    gap: 0.4rem;
+    pointer-events: none;
+  }
+  .canvas-empty .empty-icon {
+    font-size: 2rem;
+    opacity: 0.3;
+  }
+
+  /* ── OUTPUT PANEL ── */
+  .output-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .output-empty {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 0.9rem;
+    padding: 2rem 0;
+    text-align: center;
+  }
+
+  /* ── LEGEND ── */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    font-size: 0.78rem;
+    color: var(--muted);
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0.25rem;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .legend-sym {
+    width: 16px; height: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  /* ── ENTRANCE BADGE ── */
+  .entrance-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-bottom: 0.25rem;
+  }
+  .badge {
+    font-size: 0.72rem;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.05em;
+    padding: 0.2rem 0.55rem;
+    border-radius: 3px;
+    border: 1px solid;
+  }
+  .badge.entrance  { color: var(--entrance-color); border-color: var(--entrance-color); background: rgba(42,110,63,0.08); }
+  .badge.hidden-e  { color: var(--muted); border-color: var(--muted); background: transparent; font-style: italic; }
+
+  /* ── NODE CARDS ── */
+  .node-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: 560px;
+    overflow-y: auto;
+    padding-right: 2px;
+  }
+  .node-card {
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--parchment-dark);
+    padding: 0.55rem 0.7rem;
+    transition: border-color 0.15s;
+  }
+  .node-card:focus-within { border-color: var(--accent); }
+  .node-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.3rem;
+  }
+  .node-num {
+    font-family: 'Cinzel', serif;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: var(--muted);
+    min-width: 1.2rem;
+  }
+  .node-type-badge {
+    font-size: 0.68rem;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.06em;
+    padding: 0.15rem 0.45rem;
+    border-radius: 3px;
+    border: 1px solid;
+    text-transform: uppercase;
+  }
+  .type-feature  { color: var(--feature-color); border-color: var(--feature-color); background: rgba(42,92,138,0.08); }
+  .type-danger   { color: var(--danger-color);  border-color: var(--danger-color);  background: rgba(139,46,10,0.08); }
+  .type-treasure { color: var(--gold);           border-color: var(--gold);           background: rgba(154,124,46,0.08); }
+
+  .entrance-indicator {
+    font-size: 0.68rem;
+    color: var(--entrance-color);
+    font-style: italic;
+    margin-left: auto;
+  }
+
+  .node-notes {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed var(--border);
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: 0.85rem;
+    color: var(--ink);
+    padding: 0.15rem 0;
+    resize: none;
+    outline: none;
+    line-height: 1.4;
+    min-height: 1.6rem;
+  }
+  .node-notes::placeholder { color: var(--muted); opacity: 0.6; font-style: italic; }
+  .node-notes:focus { border-bottom-color: var(--accent); }
+
+
+  /* ── ROUTES SECTION ── */
+  .routes-section {
+    border-top: 1px solid var(--border);
+    padding-top: 0.6rem;
+    margin-top: 0.25rem;
+  }
+  .routes-title {
+    font-family: 'Cinzel', serif;
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+  }
+  .route-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  .route-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--ink);
+  }
+  .route-line {
+    width: 28px;
+    height: 2px;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .route-open    { background: var(--ink); }
+  .route-closed  {
+    background: var(--danger-color);
+    position: relative;
+  }
+  .route-closed::after,
+  .route-closed::before {
+    content: '×';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: var(--danger-color);
+    font-size: 10px;
+    line-height: 1;
+  }
+  .route-hidden  {
+    background: repeating-linear-gradient(
+      90deg, var(--muted) 0, var(--muted) 4px, transparent 4px, transparent 7px
+    );
+  }
+  .route-type-label {
+    font-size: 0.72rem;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    text-transform: uppercase;
+    min-width: 3.5rem;
+  }
+
+  /* ── SPARK TABLE ── */
+  .spark-table {
+    margin-top: 0.45rem;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    background: var(--parchment);
+  }
+  .spark-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.2rem 0.5rem;
+    background: var(--parchment-mid);
+    border-bottom: 1px solid var(--border);
+  }
+  .spark-title {
+    font-family: 'Cinzel', serif;
+    font-size: 0.62rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .spark-reroll {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: var(--muted);
+    padding: 0 0.1rem;
+    line-height: 1;
+    transition: color 0.15s, transform 0.2s;
+  }
+  .spark-reroll:hover { color: var(--accent); transform: rotate(-30deg); }
+  .spark-cols {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    align-items: center;
+    padding: 0.4rem 0.5rem;
+    gap: 0.4rem;
+  }
+  .spark-col { text-align: center; }
+  .spark-col-head {
+    font-size: 0.62rem;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 0.2rem;
+  }
+  .spark-val {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.2;
+  }
+  .spark-divider {
+    font-size: 0.75rem;
+    color: var(--border);
+    font-weight: 300;
+    padding-bottom: 0.15rem;
+    align-self: flex-end;
+  }
+  @keyframes sparkFlash {
+    0%   { background: rgba(139,46,10,0.1); }
+    100% { background: transparent; }
+  }
+  .spark-flash { animation: sparkFlash 0.4s ease-out; }
+
+  /* ── EXPAND BUTTON ── */
+  .btn-expand {
+    font-family: 'Cinzel', serif;
+    font-size: 0.62rem;
+    letter-spacing: 0.06em;
+    padding: 0.15rem 0.45rem;
+    border: 1px solid var(--gold);
+    background: transparent;
+    color: var(--gold);
+    border-radius: 3px;
+    cursor: pointer;
+    margin-left: auto;
+    transition: all 0.15s;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .btn-expand:hover { background: var(--gold); color: var(--parchment); }
+
+  /* ── SEED BANNER ── */
+  .seed-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    background: rgba(154,124,46,0.1);
+    border: 1px solid var(--gold);
+    border-radius: 5px;
+    padding: 0.5rem 0.7rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.8rem;
+    line-height: 1.4;
+  }
+  .seed-banner-icon { font-size: 1rem; flex-shrink: 0; margin-top: 0.05rem; }
+  .seed-banner-body { flex: 1; }
+  .seed-banner-title {
+    font-family: 'Cinzel', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--gold);
+    margin-bottom: 0.2rem;
+  }
+  .seed-banner-detail { color: var(--muted); font-style: italic; }
+  .seed-banner-spark  { color: var(--ink); font-weight: 600; }
+
+
+  /* ── TITLE + DESCRIPTION FIELDS ── */
+  .node-title {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--border);
+    font-family: 'Cinzel', serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--ink);
+    padding: 0.15rem 0;
+    outline: none;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.25rem;
+  }
+  .node-title::placeholder { color: var(--muted); opacity: 0.5; font-weight: 400; }
+  .node-title:focus { border-bottom-color: var(--accent); }
+
+  .node-desc {
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px dashed var(--border);
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: 0.85rem;
+    color: var(--ink);
+    padding: 0.15rem 0;
+    resize: none;
+    outline: none;
+    line-height: 1.4;
+    min-height: 2.4rem;
+  }
+  .node-desc::placeholder { color: var(--muted); opacity: 0.6; font-style: italic; }
+  .node-desc:focus { border-bottom-color: var(--accent); }
+
+  /* ── SCROLLBAR ── */
+  .node-cards::-webkit-scrollbar { width: 4px; }
+  .node-cards::-webkit-scrollbar-track { background: var(--parchment-mid); }
+  .node-cards::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── DUNGEON ROOM CARDS ── */
+  .room-type-monster-t { color: #7a1f2e; border-color: #7a1f2e; background: rgba(122,31,46,0.07); }
+  .room-type-monster   { color: #8b2e0a; border-color: #8b2e0a; background: rgba(139,46,10,0.07); }
+  .room-type-treasure  { color: var(--gold); border-color: var(--gold); background: rgba(154,124,46,0.07); }
+  .room-type-special   { color: #5a3a8a; border-color: #5a3a8a; background: rgba(90,58,138,0.07); }
+  .room-type-trapped   { color: #6b5c3e; border-color: #6b5c3e; background: rgba(107,92,62,0.1); }
+  .room-type-empty     { color: var(--muted); border-color: var(--border); background: transparent; }
+
+  .conn-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+    margin-top: 0.25rem;
+  }
+  .conn-table th {
+    font-family: 'Cinzel', serif;
+    font-size: 0.62rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 0.2rem 0.4rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .conn-table td {
+    padding: 0.2rem 0.4rem;
+    border-bottom: 1px solid rgba(196,169,122,0.3);
+    vertical-align: middle;
+  }
+  .conn-table tr:last-child td { border-bottom: none; }
+  .conn-len { font-size: 0.72rem; font-style: italic; color: var(--muted); }
+  .conn-line-cell { width: 32px; }
+  .conn-line {
+    display: inline-block; width: 28px; height: 2px;
+    vertical-align: middle;
+  }
+  .conn-line.door     { background: var(--ink); }
+  .conn-line.corridor { background: var(--muted); }
+  .conn-line.long     { background: var(--border); }
+
+
+  /* ── EXPORT BUTTONS ── */
+  .btn.export {
+    background: transparent;
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+  .btn.export:hover { background: var(--gold); color: var(--parchment); }
+  .export-spinner {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border: 1.5px solid currentColor;
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+    margin-right: 3px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+
+  /* ── GEAR TAB ── */
+  .gear-tab { flex: 0 0 2.8rem; font-size: 1rem; }
+
+  /* ── CONFIG TAB ── */
+  .config-section {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    overflow: hidden;
+  }
+  .config-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.6rem 0.85rem;
+    background: var(--parchment-mid);
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    user-select: none;
+  }
+  .config-section-header h3 {
+    font-family: 'Cinzel', serif;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    color: var(--ink);
+    margin: 0;
+  }
+  .config-section-toggle {
+    font-size: 0.75rem;
+    color: var(--muted);
+    transition: transform 0.2s;
+  }
+  .config-section.collapsed .config-section-toggle { transform: rotate(-90deg); }
+  .config-section-body {
+    padding: 0.75rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 0.75rem;
+  }
+  .config-section.collapsed .config-section-body { display: none; }
+
+  .config-table-card {
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    background: var(--parchment-dark);
+    overflow: hidden;
+  }
+  .config-table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.4rem 0.6rem;
+    background: var(--parchment-mid);
+    border-bottom: 1px solid var(--border);
+  }
+  .config-table-label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .config-table-body { padding: 0.5rem 0.6rem; display: flex; flex-direction: column; gap: 0.5rem; }
+
+  .config-field-label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.2rem;
+  }
+  .config-heading-input {
+    width: 100%;
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    background: var(--parchment);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.2rem 0.4rem;
+    color: var(--ink);
+    outline: none;
+    margin-bottom: 0.3rem;
+  }
+  .config-heading-input:focus { border-color: var(--accent); }
+  .config-entries-textarea {
+    width: 100%;
+    font-family: 'Crimson Pro', Georgia, serif;
+    font-size: 0.8rem;
+    background: var(--parchment);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 0.3rem 0.4rem;
+    color: var(--ink);
+    outline: none;
+    resize: vertical;
+    min-height: 120px;
+    line-height: 1.5;
+  }
+  .config-entries-textarea:focus { border-color: var(--accent); }
+
+  .config-controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 0.75rem;
+  }
+  .btn.config-apply {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--parchment);
+  }
+  .btn.config-apply:hover { background: var(--accent-light); border-color: var(--accent-light); }
+  .btn.config-reset {
+    background: transparent;
+    border-color: var(--muted);
+    color: var(--muted);
+  }
+  .btn.config-reset:hover { background: var(--muted); color: var(--parchment); }
+  .config-status {
+    font-size: 0.78rem;
+    font-style: italic;
+    color: var(--entrance-color);
+    margin-left: auto;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .config-status.visible { opacity: 1; }
+
+  .upload-area {
+    border: 1.5px dashed var(--border);
+    border-radius: 6px;
+    padding: 1rem;
+    text-align: center;
+    background: var(--parchment-mid);
+    margin-bottom: 0.75rem;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .upload-area:hover { border-color: var(--accent); }
+  .upload-area p { font-size: 0.82rem; color: var(--muted); margin: 0.2rem 0; }
+  .upload-area .upload-icon { font-size: 1.4rem; color: var(--gold); }
+  .upload-area input[type="file"] { display: none; }
+
+  .json-format-box {
+    background: var(--parchment-dark);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 0.6rem 0.75rem;
+    font-family: monospace;
+    font-size: 0.72rem;
+    color: var(--muted);
+    white-space: pre;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+  .download-config-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    margin-bottom: 0.75rem;
+  }
+
+  /* ── DECORATIVE DIVIDER ── */
+  .divider {
+    text-align: center;
+    color: var(--gold);
+    font-size: 0.9rem;
+    letter-spacing: 0.3em;
+    margin: 0.5rem 0;
+    opacity: 0.5;
+    user-select: none;
+  }
+
+  header a, footer a { color: var(--muted); }
+
+  footer {
+    text-align: center;
+    padding: 1rem;
+    color: var(--parchment-dark);
+    font-size: 0.75rem;
+    opacity: 0.4;
+    font-style: italic;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⬡ Site &amp; Dungeon Generator</h1>
+  <p>based on <a target="_blank" href="https://chrismcdee.itch.io/mythic-bastionland">Mythic Bastionland</a> and <a target="_blank" href="https://traversefantasy.blogspot.com/2022/11/bite-sized-dungeons.html">Bite-Sized Dungeons</a></p>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="switchTab('sites')">Sites</button>
+  <button class="tab-btn" onclick="switchTab('dungeons')">Dungeons</button>
+  <button class="tab-btn gear-tab" onclick="switchTab('config')" title="Configuration">⚙</button>
+</div>
+
+<div class="panel">
+
+  <!-- ══════════════ SITES TAB ══════════════ -->
+  <div id="tab-sites" class="tab-content active">
+
+    <div class="controls">
+      <button class="btn" onclick="generateSite()">⚄ Generate Site</button>
+      <button class="btn secondary" onclick="regenerateSite()">↺ Regenerate</button>
+      <button class="btn export" id="site-pdf-btn" onclick="exportPDF('site')" style="display:none">⬇ PDF</button>
+      <button class="btn export" id="site-png-btn" onclick="exportPNG('site')" style="display:none">⬇ PNG</button>
+      <label class="toggle-label">
+        <input type="checkbox" id="prompts-toggle" onchange="togglePrompts()" checked>
+        Prompts
+      </label>
+    </div>
+
+    <div class="generator-layout">
+
+      <!-- Canvas -->
+      <div class="canvas-wrap" id="site-canvas-wrap">
+        <canvas id="site-canvas"></canvas>
+        <div class="canvas-empty" id="site-canvas-empty">
+          <span class="empty-icon">⬡</span>
+          <span>Press Generate to begin</span>
+        </div>
+      </div>
+
+      <!-- Output -->
+      <div class="output-panel" id="site-output">
+        <div class="output-empty">Generate a site to see its details here.</div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ══════════════ DUNGEONS TAB ══════════════ -->
+  <div id="tab-dungeons" class="tab-content">
+
+    <div class="controls">
+      <button class="btn" onclick="generateDungeon()">⚄ Generate Dungeon</button>
+      <button class="btn secondary" onclick="generateDungeon()">↺ Regenerate</button>
+      <button class="btn export" id="dung-pdf-btn" onclick="exportPDF('dungeon')" style="display:none">⬇ PDF</button>
+      <button class="btn export" id="dung-png-btn" onclick="exportPNG('dungeon')" style="display:none">⬇ PNG</button>
+      <label class="toggle-label">
+        <input type="checkbox" id="dung-prompts-toggle" onchange="toggleDungPrompts()" checked>
+        Prompts
+      </label>
+    </div>
+
+    <div class="generator-layout">
+      <div class="canvas-wrap" id="dung-canvas-wrap">
+        <canvas id="dung-canvas"></canvas>
+        <div class="canvas-empty" id="dung-canvas-empty">
+          <span class="empty-icon">⛩</span>
+          <span>Press Generate to begin</span>
+        </div>
+      </div>
+      <div class="output-panel" id="dung-output">
+        <div class="output-empty">Generate a dungeon to see its details here.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════ CONFIG TAB ══════════════ -->
+  <div id="tab-config" class="tab-content">
+
+    <div class="config-controls">
+      <button class="btn config-apply" onclick="applyConfig()">✓ Apply Changes</button>
+      <button class="btn config-reset" onclick="resetAllConfig()">↺ Reset All to Defaults</button>
+      <span class="config-status" id="config-status">Changes applied.</span>
+    </div>
+
+    <!-- JSON Upload / Download -->
+    <div class="config-section collapsed">
+      <div class="config-section-header" onclick="toggleConfigSection(this)">
+        <h3>Import / Export JSON</h3>
+        <span class="config-section-toggle">▾</span>
+      </div>
+      <div class="config-section-body" style="display:none; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start;">
+        <div style="display:flex; flex-direction:column; gap:0.75rem;">
+          <button class="btn export" style="align-self:flex-start;" onclick="downloadConfigJSON()">⬇ Download Config JSON</button>
+          <label class="upload-area" for="config-upload" style="cursor:pointer;">
+            <div class="upload-icon">⬆</div>
+            <p><strong>Upload JSON config file</strong></p>
+            <p>Only tables present in the file will be updated.</p>
+            <input type="file" id="config-upload" accept=".json" onchange="handleConfigUpload(event)">
+          </label>
+        </div>
+        <div>
+          <div class="config-field-label">JSON Format Reference</div>
+          <div class="json-format-box">{
+  "sites": {
+    "feature": {
+      "prompts": ["prompt 1", "prompt 2", ...],
+      "spark": {
+        "col1": { "heading": "Condition", "entries": [...] },
+        "col2": { "heading": "Nature",    "entries": [...] }
+      }
+    },
+    "danger":   { ... },
+    "treasure": { ... }
+  },
+  "dungeons": {
+    "monster-t": { "prompts": [...], "spark": { ... } },
+    "monster":   { ... },
+    "treasure":  { ... },
+    "special":   { ... },
+    "trapped":   { ... },
+    "empty":     { ... }
+  },
+  "seeded": {
+    "feature": {
+      "monster-t": ["prompt 1", ...],
+      "monster":   ["prompt 1", ...],
+      "treasure":  ["prompt 1", ...],
+      "special":   ["prompt 1", ...],
+      "trapped":   ["prompt 1", ...],
+      "empty":     ["prompt 1", ...]
+    },
+    "danger":   { ... },
+    "treasure": { ... }
+  }
+}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sites tables -->
+    <div class="config-section collapsed" id="cfg-section-sites">
+      <div class="config-section-header" onclick="toggleConfigSection(this)">
+        <h3>Sites — Prompts &amp; Sparks</h3>
+        <span class="config-section-toggle">▾</span>
+      </div>
+      <div class="config-section-body" id="cfg-body-sites"></div>
+    </div>
+
+    <!-- Dungeons tables -->
+    <div class="config-section collapsed" id="cfg-section-dungeons">
+      <div class="config-section-header" onclick="toggleConfigSection(this)">
+        <h3>Dungeons — Prompts &amp; Sparks</h3>
+        <span class="config-section-toggle">▾</span>
+      </div>
+      <div class="config-section-body" id="cfg-body-dungeons"></div>
+    </div>
+
+    <!-- Seeded prompts -->
+    <div class="config-section collapsed" id="cfg-section-seeded">
+      <div class="config-section-header" onclick="toggleConfigSection(this)">
+        <h3>Seeded Dungeon Prompts (Expand from Site)</h3>
+        <span class="config-section-toggle">▾</span>
+      </div>
+      <div class="config-section-body" id="cfg-body-seeded" style="display:none"></div>
+    </div>
+
+  </div>
+
+
+</div>
+
+<footer>Made by Dusko Petrovic of the <a target="_blank" href="https://vanishing-vault.itch.io/">Vanishing Vault</a></footer>
+
+<script>
+// ══════════════════════════════════════════════════════
+//  DATA TABLES
+// ══════════════════════════════════════════════════════
+
+const SITE_PROMPTS = {
+  feature: [
+    "Weathered stones arranged in a pattern no-one remembers the purpose of",
+    "A view across the surrounding land — something moves in the far distance",
+    "The smell of old smoke clings to the walls here",
+    "Crude markings on every surface, too regular to be decoration",
+    "A dried-up source of water, its basin stained deep green",
+    "The bones of something large, picked clean long ago",
+    "An offering left recently — flowers, still fresh",
+    "Strange acoustics: whispers carry unnaturally far",
+    "A collapsed structure, the rubble oddly arranged",
+    "The air here is noticeably colder than the rest of the site",
+    "A signpost in a language no-one in the party reads, pointing nowhere obvious",
+    "The ground is soft and black, as if scorched long ago and never recovered",
+    "An old campfire ring, used recently by more than one person",
+    "The trees here grow in a perfect ring, with nothing inside them",
+    "Something has been buried here and dug up again, repeatedly",
+    "A worn path leads here from multiple directions and stops dead",
+    "The horizon looks different from here — something large is visible that wasn't before",
+    "Carved steps lead down to a door that has been sealed from the inside",
+    "A well with no bucket, no rope, and no bottom that anyone can see",
+    "The light here is always slightly wrong — too golden, too still",
+  ],
+  danger: [
+    "The ground here is unstable — one wrong step invites collapse",
+    "Something territorial has made its nest here",
+    "A trap left by a previous occupant, half-hidden beneath debris",
+    "The route requires careful negotiation — a fall would be fatal",
+    "A barrier of thorns, poison, or ruin blocks easy passage",
+    "Evidence of recent violence — fresh blood, scattered belongings",
+    "A creature watches from the shadows, deciding whether to act",
+    "Toxic air seeps from below; prolonged exposure is dangerous",
+    "Unstable stonework overhead — noise may bring it down",
+    "The water here carries something that should not be drunk",
+    "Something has stripped every piece of food from this area; hunger is coming",
+    "The path narrows to a ledge above a long drop, slick with spray",
+    "A locked gate in good repair — someone maintains it, and recently",
+    "The ground is honeycombed with burrows; the occupants are not small",
+    "A wire stretched at ankle height across the only passable route",
+    "The smell of something dead, close, and large",
+    "Fresh claw marks gouged into the stone at head height",
+    "A swarm's nest hanging directly above the only dry crossing point",
+    "The path doubles back — whoever is following will be ahead of you",
+    "A pit, recently dug, covered with a mat of woven branches and leaves",
+  ],
+  treasure: [
+    "A chest wedged into a crevice, its lock corroded open",
+    "Items of obvious value scattered as if dropped in flight",
+    "A hidden cache, invisible until you know where to look",
+    "Something that doesn't belong here — too fine, too foreign",
+    "The remains of a collection, most ruined, one piece intact",
+    "A sealed container of unknown material, heavier than it looks",
+    "Coins of a denomination no longer minted, a small fortune",
+    "An object of clear ritual significance, still gleaming",
+    "Maps or documents, partially legible, potentially invaluable",
+    "Something someone clearly wanted found — left conspicuously",
+    "A saddlebag still attached to a long-dead horse, contents intact",
+    "A waterproof oilskin package buried under a cairn",
+    "A locked strongbox welded shut, requiring destruction to open",
+    "An item of personal value — a locket, a ring — beside old bones",
+    "Something wrapped in cloth and hidden inside a hollowed stone",
+    "A weapons cache, preserved in grease, still serviceable",
+    "A collection of tools for a specific purpose no-one in the party has",
+    "A satchel of letters, one of which describes this exact location",
+    "Something in a cage, alive, worth more than dead",
+    "An item bearing a name and a crest — someone will pay to get it back",
+  ],
+};
+
+const ROUTE_TYPES = ['open','open','open','closed','closed','hidden'];
+
+
+// ── SEEDED PROMPT OVERRIDES by site node type ──
+// These replace the standard pool when a dungeon is seeded from a site node.
+const SEEDED_PROMPTS = {
+  // Site Feature node → dungeon feels like a place with history, atmosphere
+  feature: {
+    'monster-t': [
+      "Something ancient has claimed this place as its own, and what it guards it doesn't understand",
+      "The occupant is drawn here by the same resonance that makes this place notable",
+      "A creature that has become part of the atmosphere — hard to separate from the location itself",
+    ],
+    monster: [
+      "It is here because this place draws things, and this thing was drawn",
+      "A territorial presence that senses the site's significance without comprehending it",
+      "Whatever made this place notable also made something want to protect it",
+    ],
+    treasure: [
+      "Something left deliberately as part of this place's original purpose",
+      "An object that belongs here more than anywhere — removing it feels wrong",
+      "The place's significance is concentrated here, if you know what you're looking for",
+    ],
+    special: [
+      "The feature that defines the whole site — this is what everything else orbits",
+      "An inscription, mechanism, or arrangement that explains what this place was for",
+      "The heart of it: old, deliberate, still faintly purposeful",
+    ],
+    trapped: [
+      "Protection placed not out of aggression but reverence — this place was worth guarding",
+      "The trap is almost respectful. Whoever made it didn't want to kill, just to warn.",
+      "An old deterrent, still functional, left by people who cared deeply about this space",
+    ],
+    empty: [
+      "A room that once had a function now forgotten — the layout still implies it",
+      "The atmosphere is thicker here; whatever the site's quality is, it's concentrated in this space",
+      "Nothing here but the feeling that something important happened once",
+    ],
+  },
+  // Site Danger node → dungeon is hostile, threatening, obstacle-focused
+  danger: {
+    'monster-t': [
+      "The apex predator of this space; everything else defers to it or avoids it",
+      "Aggressive and territorial, sitting on its hoard like a challenge",
+      "Something that has killed here before and expects to again",
+    ],
+    monster: [
+      "The threat this place is known for — it didn't come here, it was always here",
+      "Wounded, which makes it more dangerous, not less",
+      "It patrols. It has a method. It has been doing this longer than anyone has been watching.",
+    ],
+    treasure: [
+      "The reward for surviving — placed deep, past everything hostile",
+      "Something valuable enough that someone died trying to reach it. Recently.",
+      "Left here by the last party through. They didn't make it out.",
+    ],
+    special: [
+      "The source of the danger — a mechanism, creature, or condition that explains everything",
+      "Whatever made this place dangerous originates here",
+      "Not a room so much as a focal point for whatever is wrong with this location",
+    ],
+    trapped: [
+      "Layered protection — this trap is inside the danger, not instead of it",
+      "The trap and the threat reinforce each other; avoiding one means encountering the other",
+      "Set by whatever lives here, not by any prior occupant",
+    ],
+    empty: [
+      "Clear of immediate threat — but the signs of recent violence are everywhere",
+      "A brief respite. The sounds from the next room suggest it won't last.",
+      "Whatever was here recently left in a hurry, or was removed in a hurry",
+    ],
+  },
+  // Site Treasure node → dungeon is a vault, cache, place of value
+  treasure: {
+    'monster-t': [
+      "A guardian that has grown wealthy simply by proximity to what it protects",
+      "It didn't choose the hoard — the hoard accumulated around it",
+      "Placed here deliberately to protect something specific",
+    ],
+    monster: [
+      "A deterrent, not a coincidence — something wants this place left alone",
+      "The cost of entry. It doesn't negotiate.",
+      "Whatever made this place valuable also made something want to keep others away",
+    ],
+    treasure: [
+      "The main cache — this is what the whole complex exists to conceal",
+      "Layered wealth: the obvious prize, and behind it, the real one",
+      "Dispersed deliberately — you'll need to search to find all of it",
+    ],
+    special: [
+      "The mechanism that protects or conceals the main hoard",
+      "A record of what's here and where — invaluable if you can read it",
+      "The origin point: whoever put this together started here",
+    ],
+    trapped: [
+      "The final layer of protection before the real prize",
+      "Designed to punish the greedy — the more you take, the worse it gets",
+      "A trap that uses the treasure as its trigger",
+    ],
+    empty: [
+      "Already picked over — but not completely. Look harder.",
+      "A buffer room: nothing valuable here, but it slows you down and makes noise",
+      "Evidence of previous visitors. Some of them made it further than this.",
+    ],
+  },
+};
+
+// ── SPARK TABLES: 2 × d20 per node type ──
+const SPARK_TABLES = {
+  feature: {
+    label: 'Feature',
+    col1: { heading: 'Condition', entries: [
+      'Abandoned', 'Overgrown', 'Flooded', 'Scorched',
+      'Frozen', 'Crumbling', 'Consecrated', 'Contested',
+      'Watched', 'Ancient', 'Repurposed', 'Hidden',
+      'Pristine', 'Defiled', 'Fortified', 'Submerged',
+      'Haunted', 'Reclaimed', 'Sealed', 'Half-built',
+    ]},
+    col2: { heading: 'Nature', entries: [
+      'Shrine', 'Watchtower', 'Crossroads', 'Monument',
+      'Camp', 'Burial ground', 'Archive', 'Garden',
+      'Workshop', 'Gathering hall', 'Signal post', 'Threshold',
+      'Ossuary', 'Observatory', 'Mill', 'Bathhouse',
+      'Stable', 'Granary', 'Lighthouse', 'Forge',
+    ]},
+  },
+  danger: {
+    label: 'Danger',
+    col1: { heading: 'Behaviour', entries: [
+      'Lurking', 'Territorial', 'Wounded', 'Hunting',
+      'Guarding', 'Fleeing', 'Dormant', 'Frenzied',
+      'Corrupted', 'Starving', 'Deceiving', 'Awakening',
+      'Swarming', 'Breeding', 'Migrating', 'Entrenched',
+      'Panicked', 'Ancient', 'Summoned', 'Blind',
+    ]},
+    col2: { heading: 'Threat', entries: [
+      'Collapse', 'Ambush', 'Poison', 'Flood',
+      'Creature', 'Curse', 'Rival party', 'Trap mechanism',
+      'Disease', 'Falling', 'Fire', 'Madness',
+      'Quicksand', 'Rockslide', 'Thorn wall', 'Drowning',
+      'Stampede', 'Fog', 'Crossfire', 'Rot',
+    ]},
+  },
+  treasure: {
+    label: 'Treasure',
+    col1: { heading: 'Origin', entries: [
+      'Looted', 'Gifted', 'Stolen', 'Forgotten',
+      'Cursed', 'Commissioned', 'Inherited', 'Bargained',
+      'Discovered', 'Smuggled', 'Hoarded', 'Consecrated',
+      'Tribute', 'Ransom', 'Salvaged', 'Forged',
+      'Diplomatic', 'Buried', 'Traded', 'Seized',
+    ]},
+    col2: { heading: 'Form', entries: [
+      'Weapon', 'Tome', 'Relic', 'Map',
+      'Coin hoard', 'Gem', 'Vessel', 'Armour',
+      'Key', 'Idol', 'Correspondence', 'Tool',
+      'Seal', 'Standard', 'Instrument', 'Component',
+      'Creature', 'Formula', 'Deed', 'Crown',
+    ]},
+  },
+};
+
+// ══════════════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════════════
+let currentSite = null;
+let showPrompts = true;
+
+// ══════════════════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════════════════
+function rnd(n) { return Math.floor(Math.random() * n); }
+function pick(arr) { return arr[rnd(arr.length)]; }
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = rnd(i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ══════════════════════════════════════════════════════
+//  SITE GENERATION
+// ══════════════════════════════════════════════════════
+
+function rollSpark(type) {
+  const t = (CFG_SITE_SPARKS||SPARK_TABLES)[type] || SPARK_TABLES[type];
+  return {
+    a: t.col1.entries[rnd(20)],
+    b: t.col2.entries[rnd(20)],
+  };
+}
+
+function rerollSpark(nodeIdx) {
+  if (!currentSite) return;
+  const node = currentSite.nodes[nodeIdx];
+  node.spark = rollSpark(node.type);
+  // Update just the spark cell without rebuilding whole panel
+  const cell = document.getElementById(`spark-${node.id}`);
+  if (cell) {
+    cell.querySelector('.spark-a').textContent = node.spark.a;
+    cell.querySelector('.spark-b').textContent = node.spark.b;
+    // Flash animation
+    cell.classList.remove('spark-flash');
+    void cell.offsetWidth;
+    cell.classList.add('spark-flash');
+  }
+}
+
+function generateSiteData() {
+  // 7 positions: 6 hex corners + 1 center. Erase one corner at random.
+  // We keep 6 positions total.
+  const erased = rnd(6); // which corner to erase (0-5)
+
+  // Build 6 active positions (corners except erased, + center)
+  const positions = []; // indices into the 7-point hex (0-5 = corners, 6 = center)
+  for (let i = 0; i < 6; i++) {
+    if (i !== erased) positions.push(i);
+  }
+  positions.push(6); // center always included
+
+  // Assign types: 3 features, 2 dangers, 1 treasure
+  const types = shuffle(['feature','feature','feature','danger','danger','treasure']);
+  const nodes = positions.map((hexPos, idx) => ({
+    id: idx + 1,
+    hexPos,
+    type: types[idx],
+    title: '',
+    notes: '',
+    prompt: pick((CFG_SITE_PROMPTS||SITE_PROMPTS)[types[idx]]),
+    desc: pick((CFG_SITE_PROMPTS||SITE_PROMPTS)[types[idx]]),
+    spark: rollSpark(types[idx]),
+    isEntrance: false,
+    isHiddenEntrance: false,
+  }));
+
+  // Assign entrance to one node
+  const entranceIdx = rnd(nodes.length);
+  nodes[entranceIdx].isEntrance = true;
+
+  // 40% chance of a hidden entrance on a different node
+  if (Math.random() < 0.4) {
+    let hiddenIdx;
+    do { hiddenIdx = rnd(nodes.length); } while (hiddenIdx === entranceIdx);
+    nodes[hiddenIdx].isHiddenEntrance = true;
+  }
+
+  // Build adjacency: hex corners are adjacent to their neighbours + center
+  // Positions are original hex indices 0-5 (corners) and 6 (center)
+  // Adjacency rules:
+  //   corner i is adjacent to corner (i+1)%6, corner (i+5)%6, and center (6)
+  //   center is adjacent to all corners present
+
+  function areAdjacent(p1, p2) {
+    if (p1 === 6 || p2 === 6) return true; // center connects to all
+    return Math.abs(p1 - p2) === 1 || Math.abs(p1 - p2) === 5;
+  }
+
+  // Build list of all valid edges between active positions
+  const allEdges = [];
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      if (areAdjacent(nodes[i].hexPos, nodes[j].hexPos)) {
+        allEdges.push([i, j]);
+      }
+    }
+  }
+
+  // We need exactly 6 routes (3 open, 2 closed, 1 hidden)
+  // First ensure connectivity via a spanning tree, then add extras
+  const shuffledEdges = shuffle(allEdges);
+  const spanningEdges = [];
+  const visited = new Set([0]);
+  const remaining = [...shuffledEdges];
+
+  // Prim-like spanning tree
+  while (visited.size < nodes.length && remaining.length) {
+    const idx = remaining.findIndex(([a, b]) =>
+      (visited.has(a) && !visited.has(b)) || (!visited.has(a) && visited.has(b))
+    );
+    if (idx === -1) break;
+    const [a, b] = remaining.splice(idx, 1)[0];
+    spanningEdges.push([a, b]);
+    visited.add(a); visited.add(b);
+  }
+
+  // Add more edges up to 6 from remaining pool
+  const extraEdges = remaining.filter(([a, b]) =>
+    !spanningEdges.some(([x, y]) => (x === a && y === b) || (x === b && y === a))
+  );
+
+  let routes = [...spanningEdges];
+  for (const e of extraEdges) {
+    if (routes.length >= 6) break;
+    routes.push(e);
+  }
+  // Trim to 6 if somehow more
+  routes = routes.slice(0, 6);
+
+  // Assign route types
+  const routeTypePool = shuffle(ROUTE_TYPES);
+  const routeObjects = routes.map(([a, b], i) => ({
+    from: a,
+    to: b,
+    routeType: routeTypePool[i] || 'open',
+  }));
+
+  return { nodes, routes: routeObjects, erased };
+}
+
+// ══════════════════════════════════════════════════════
+//  CANVAS DRAWING
+// ══════════════════════════════════════════════════════
+
+function getHexPositions(cx, cy, r) {
+  // 6 corners (flat-top hex), index 0 = top-right, going clockwise
+  const corners = [];
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 3) * i - Math.PI / 6;
+    corners.push({ x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) });
+  }
+  corners.push({ x: cx, y: cy }); // index 6 = center
+  return corners;
+}
+
+function drawSiteCanvas(site) {
+  const canvas = document.getElementById('site-canvas');
+  const wrap = document.getElementById('site-canvas-wrap');
+  const size = wrap.clientWidth;
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = size * 0.34;
+  const hexPts = getHexPositions(cx, cy, r);
+  const nodeR = Math.max(12, size * 0.048);
+  const scale = size / 320;
+
+  ctx.clearRect(0, 0, size, size);
+
+  // Subtle parchment background with vignette
+  const vignette = ctx.createRadialGradient(cx, cy, r * 0.3, cx, cy, r * 1.4);
+  vignette.addColorStop(0, 'rgba(237,227,196,0)');
+  vignette.addColorStop(1, 'rgba(200,185,150,0.25)');
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, size, size);
+
+  // Draw faint hex outline
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const pt = hexPts[i];
+    i === 0 ? ctx.moveTo(pt.x, pt.y) : ctx.lineTo(pt.x, pt.y);
+  }
+  ctx.closePath();
+  ctx.strokeStyle = 'rgba(196,169,122,0.2)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // ── Draw routes ──
+  for (const route of site.routes) {
+    const fromPt = hexPts[site.nodes[route.from].hexPos];
+    const toPt   = hexPts[site.nodes[route.to].hexPos];
+
+    ctx.save();
+    ctx.lineWidth = 1.8 * scale;
+
+    if (route.routeType === 'open') {
+      ctx.strokeStyle = '#1a1208';
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(fromPt.x, fromPt.y);
+      ctx.lineTo(toPt.x, toPt.y);
+      ctx.stroke();
+
+    } else if (route.routeType === 'closed') {
+      ctx.strokeStyle = '#8b2e0a';
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(fromPt.x, fromPt.y);
+      ctx.lineTo(toPt.x, toPt.y);
+      ctx.stroke();
+      // Draw X in the middle
+      const mx = (fromPt.x + toPt.x) / 2;
+      const my = (fromPt.y + toPt.y) / 2;
+      const xs = 5 * scale;
+      ctx.lineWidth = 1.5 * scale;
+      ctx.beginPath();
+      ctx.moveTo(mx - xs, my - xs); ctx.lineTo(mx + xs, my + xs);
+      ctx.moveTo(mx + xs, my - xs); ctx.lineTo(mx - xs, my + xs);
+      ctx.stroke();
+
+    } else { // hidden
+      ctx.strokeStyle = '#6b5c3e';
+      ctx.setLineDash([5 * scale, 4 * scale]);
+      ctx.beginPath();
+      ctx.moveTo(fromPt.x, fromPt.y);
+      ctx.lineTo(toPt.x, toPt.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.restore();
+  }
+
+  // ── Draw nodes ──
+  for (const node of site.nodes) {
+    const pt = hexPts[node.hexPos];
+    // Collect positions of connected neighbours for arrow placement
+    const neighbourPts = site.routes
+      .filter(r => r.from === site.nodes.indexOf(node) || r.to === site.nodes.indexOf(node))
+      .map(r => {
+        const otherIdx = r.from === site.nodes.indexOf(node) ? r.to : r.from;
+        return hexPts[site.nodes[otherIdx].hexPos];
+      });
+    drawNode(ctx, pt.x, pt.y, nodeR, node, scale, neighbourPts);
+  }
+}
+
+
+// Draws an entrance arrow into (nx,ny) from the freest direction,
+// avoiding the angles occupied by neighbourPts.
+function drawEntranceArrow(ctx, nx, ny, nodeR, scale, isDashed, neighbourPts) {
+  // Compute angles TO each neighbour
+  const takenAngles = neighbourPts.map(p => Math.atan2(p.y - ny, p.x - nx));
+
+  // Candidate directions: 8 compass points
+  const candidates = Array.from({length: 8}, (_, i) => (i * Math.PI * 2) / 8);
+
+  // Score each candidate by minimum angular distance from any taken angle
+  function angDiff(a, b) {
+    let d = Math.abs(a - b) % (Math.PI * 2);
+    if (d > Math.PI) d = Math.PI * 2 - d;
+    return d;
+  }
+  let bestAngle = -Math.PI / 2; // default: straight up
+  let bestScore = -1;
+  for (const cand of candidates) {
+    const minDist = takenAngles.length
+      ? Math.min(...takenAngles.map(t => angDiff(cand, t)))
+      : Math.PI;
+    if (minDist > bestScore) { bestScore = minDist; bestAngle = cand; }
+  }
+
+  // Arrow shaft: from outside inward to node edge
+  const shaftLen = nodeR * 1.4;
+  const tipX = nx + Math.cos(bestAngle) * nodeR * 1.12;
+  const tipY = ny + Math.sin(bestAngle) * nodeR * 1.12;
+  const tailX = nx + Math.cos(bestAngle) * (nodeR + shaftLen);
+  const tailY = ny + Math.sin(bestAngle) * (nodeR + shaftLen);
+
+  ctx.save();
+  ctx.lineWidth = 1.5 * scale;
+  ctx.setLineDash(isDashed ? [3 * scale, 3 * scale] : []);
+  ctx.beginPath();
+  ctx.moveTo(tailX, tailY);
+  ctx.lineTo(tipX, tipY);
+  ctx.stroke();
+
+  // Arrowhead pointing inward (toward node) — wings spread back along shaft
+  ctx.setLineDash([]);
+  const wingSpread = 0.4;
+  const headLen = 6 * scale;
+  ctx.beginPath();
+  ctx.moveTo(tipX + Math.cos(bestAngle + wingSpread) * headLen,
+             tipY + Math.sin(bestAngle + wingSpread) * headLen);
+  ctx.lineTo(tipX, tipY);
+  ctx.lineTo(tipX + Math.cos(bestAngle - wingSpread) * headLen,
+             tipY + Math.sin(bestAngle - wingSpread) * headLen);
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawNode(ctx, x, y, r, node, scale, neighbourPts = []) {
+  const colors = {
+    feature:  { fill: '#dceaf5', stroke: '#2a5c8a' },
+    danger:   { fill: '#f5e0d8', stroke: '#8b2e0a' },
+    treasure: { fill: '#f5eed8', stroke: '#9a7c2e' },
+  };
+  const c = colors[node.type];
+
+  ctx.save();
+
+  if (node.type === 'feature') {
+    // Circle
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fillStyle = c.fill;
+    ctx.fill();
+    ctx.strokeStyle = c.stroke;
+    ctx.lineWidth = 1.8 * scale;
+    ctx.stroke();
+
+  } else if (node.type === 'danger') {
+    // Triangle
+    const h = r * 1.6;
+    ctx.beginPath();
+    ctx.moveTo(x, y - h * 0.65);
+    ctx.lineTo(x + r * 1.05, y + h * 0.35);
+    ctx.lineTo(x - r * 1.05, y + h * 0.35);
+    ctx.closePath();
+    ctx.fillStyle = c.fill;
+    ctx.fill();
+    ctx.strokeStyle = c.stroke;
+    ctx.lineWidth = 1.8 * scale;
+    ctx.stroke();
+
+  } else {
+    // Diamond (treasure)
+    const d = r * 1.15;
+    ctx.beginPath();
+    ctx.moveTo(x, y - d);
+    ctx.lineTo(x + d, y);
+    ctx.lineTo(x, y + d);
+    ctx.lineTo(x - d, y);
+    ctx.closePath();
+    ctx.fillStyle = c.fill;
+    ctx.fill();
+    ctx.strokeStyle = c.stroke;
+    ctx.lineWidth = 1.8 * scale;
+    ctx.stroke();
+  }
+
+  // Entrance arrow indicator
+  if (node.isEntrance || node.isHiddenEntrance) {
+    ctx.strokeStyle = node.isEntrance ? '#2a6e3f' : '#6b5c3e';
+    drawEntranceArrow(ctx, x, y, r, scale, !!node.isHiddenEntrance, neighbourPts);
+  }
+
+  // Node number
+  ctx.fillStyle = '#1a1208';
+  ctx.font = `bold ${Math.round(r * 0.75)}px 'Cinzel', serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(node.id, x, y + 0.5);
+
+  ctx.restore();
+}
+
+// ══════════════════════════════════════════════════════
+//  OUTPUT PANEL
+// ══════════════════════════════════════════════════════
+
+function renderSiteOutput(site) {
+  const panel = document.getElementById('site-output');
+
+  // Build entrance badges
+  const entranceNodes = site.nodes.filter(n => n.isEntrance || n.isHiddenEntrance);
+  let entranceHTML = '';
+  if (entranceNodes.length) {
+    entranceHTML = '<div class="entrance-row">';
+    for (const n of entranceNodes) {
+      if (n.isEntrance) {
+        entranceHTML += `<span class="badge entrance">⬆ Entrance — Node ${n.id}</span>`;
+      }
+      if (n.isHiddenEntrance) {
+        entranceHTML += `<span class="badge hidden-e">⋯ Hidden Entrance — Node ${n.id}</span>`;
+      }
+    }
+    entranceHTML += '</div>';
+  }
+
+  // Build node cards
+  let cardsHTML = '<div class="node-cards">';
+  for (const node of site.nodes) {
+    const typeLabel = node.type.charAt(0).toUpperCase() + node.type.slice(1);
+    const entryTag = node.isEntrance
+      ? '<span class="entrance-indicator">↓ Entrance</span>'
+      : node.isHiddenEntrance
+        ? '<span class="entrance-indicator" style="color:var(--muted)">⋯ Hidden</span>'
+        : '';
+    const promptHTML = showPrompts ? (() => {
+      const t = SPARK_TABLES[node.type];
+      return `
+        <div class="spark-table" id="spark-${node.id}">
+          <div class="spark-header">
+            <span class="spark-title">Spark</span>
+            <button class="spark-reroll" onclick="rerollSpark(${node.id - 1})" title="Re-roll spark">↺</button>
+          </div>
+          <div class="spark-cols">
+            <div class="spark-col">
+              <div class="spark-col-head">${t.col1.heading}</div>
+              <div class="spark-a spark-val">${node.spark.a}</div>
+            </div>
+            <div class="spark-divider">×</div>
+            <div class="spark-col">
+              <div class="spark-col-head">${t.col2.heading}</div>
+              <div class="spark-b spark-val">${node.spark.b}</div>
+            </div>
+          </div>
+        </div>`;
+    })() : '';
+    cardsHTML += `
+      <div class="node-card" id="card-${node.id}">
+        <div class="node-card-header">
+          <span class="node-num">${node.id}.</span>
+          <span class="node-type-badge type-${node.type}">${typeLabel}</span>
+          ${entryTag}
+          <button class="btn-expand" onclick="expandNodeToDungeon(${node.id - 1})" title="Expand this node into a dungeon">⤵ Expand</button>
+        </div>
+        <input class="node-title" type="text"
+          placeholder="Title…"
+          value="${node.title}"
+          oninput="saveSiteTitle(${node.id - 1}, this.value)">
+        <textarea class="node-desc" rows="2"
+          placeholder="Description…"
+          oninput="saveSiteDesc(${node.id - 1}, this.value); autoResize(this)"
+          onfocus="autoResize(this)">${node.desc}</textarea>
+        ${promptHTML}
+      </div>`;
+  }
+  cardsHTML += '</div>';
+
+  // Build route list
+  const routeLabels = { open: 'Open', closed: 'Closed', hidden: 'Hidden' };
+  let routeHTML = '<div class="routes-section"><div class="routes-title">Routes</div><div class="route-list">';
+  for (const r of site.routes) {
+    const fromId = site.nodes[r.from].id;
+    const toId   = site.nodes[r.to].id;
+    routeHTML += `
+      <div class="route-item">
+        <div class="route-line route-${r.routeType}"></div>
+        <span class="route-type-label">${routeLabels[r.routeType]}</span>
+        <span>${fromId} ↔ ${toId}</span>
+      </div>`;
+  }
+  routeHTML += '</div></div>';
+
+  // Legend
+  const legendHTML = `
+    <div class="legend">
+      <span class="legend-item">
+        <svg class="legend-sym" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6" fill="#dceaf5" stroke="#2a5c8a" stroke-width="1.5"/></svg>
+        Feature
+      </span>
+      <span class="legend-item">
+        <svg class="legend-sym" viewBox="0 0 16 16"><polygon points="8,1 15,14 1,14" fill="#f5e0d8" stroke="#8b2e0a" stroke-width="1.5"/></svg>
+        Danger
+      </span>
+      <span class="legend-item">
+        <svg class="legend-sym" viewBox="0 0 16 16"><polygon points="8,1 15,8 8,15 1,8" fill="#f5eed8" stroke="#9a7c2e" stroke-width="1.5"/></svg>
+        Treasure
+      </span>
+    </div>`;
+
+  panel.innerHTML = legendHTML + entranceHTML + cardsHTML + routeHTML;
+}
+
+// ══════════════════════════════════════════════════════
+//  ACTIONS
+// ══════════════════════════════════════════════════════
+
+function generateSite() {
+  currentSite = generateSiteData();
+  document.getElementById('site-canvas-empty').style.display = 'none';
+  drawSiteCanvas(currentSite);
+  renderSiteOutput(currentSite);
+  document.getElementById('site-pdf-btn').style.display = '';
+  document.getElementById('site-png-btn').style.display = '';
+}
+
+function regenerateSite() {
+  if (!currentSite) { generateSite(); return; }
+  generateSite();
+}
+
+function togglePrompts() {
+  showPrompts = document.getElementById('prompts-toggle').checked;
+  if (currentSite) renderSiteOutput(currentSite);
+}
+
+function saveNote(idx, value) {
+  if (currentSite) currentSite.nodes[idx].notes = value;
+}
+function saveSiteTitle(idx, value) {
+  if (currentSite) currentSite.nodes[idx].title = value;
+}
+function saveSiteDesc(idx, value) {
+  if (currentSite) currentSite.nodes[idx].desc = value;
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = el.scrollHeight + 'px';
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.currentTarget.classList.add('active');
+  if (name === 'config') buildConfigUI();
+}
+
+
+// ══════════════════════════════════════════════════════
+//  BSD DATA
+// ══════════════════════════════════════════════════════
+
+const DUNG_PROMPTS = {
+  'monster-t': [
+    "Something intelligent broods over its prize, waiting for careless visitors",
+    "A pack creature whose territory happens to include something valuable",
+    "A guardian bound by old obligation, not simple hunger",
+    "Whatever lives here has dragged its prize into plain sight as a lure",
+    "Multiple creatures share this space uneasily — and share the hoard",
+    "It doesn't know what it guards, only that others keep trying to take it",
+    "The creature and its treasure have been here so long they've grown into each other",
+    "A recent arrival that killed the previous occupant and inherited everything",
+    "It accepts tribute — the problem is working out what counts as tribute",
+    "The hoard is bait, the creature is the trap, and it is very patient",
+    "Something that was trained to guard this and has outlived its trainers by generations",
+    "Two creatures in an uneasy alliance, neither willing to let the other leave",
+    "It collects things of a specific kind — the party may have one without knowing",
+    "Asleep on top of its prize; the floor is covered in bones of those who tried to sneak past",
+    "It cannot leave this room — and it knows exactly what you need from in here",
+    "Protective of its young more than its hoard; the young are hidden in the hoard",
+    "A creature that has learned to sort its collection, and will notice if anything moves",
+    "Old enough to be intelligent, too old to be reasonable",
+    "The treasure is also a cage; the creature is also a prisoner",
+    "It doesn't want the treasure — it wants company. It won't let you leave.",
+  ],
+  monster: [
+    "It is here because this is where the food comes — the party is the food",
+    "A wounded thing, cornered, more dangerous for its desperation",
+    "Something that followed the smell of the dungeon's other occupants",
+    "It patrols. It has a route. It has been doing this for a very long time",
+    "Not aggressive unless disturbed — but it is sleeping right across the door",
+    "Two competing predators have reached a cold standoff in this room",
+    "A scavenger that has grown bold — it followed the party in from outside",
+    "Something that was here first, long before this became a dungeon",
+    "A predator that mimics something harmless, and is very good at it",
+    "An ambush predator that has already identified the party's weakest member",
+    "Sick, and therefore unpredictable in a way that healthy creatures are not",
+    "A swarm rather than a single thing — each piece is trivial, together they are not",
+    "Something that was once domesticated and has gone feral over a very long time",
+    "A creature that communicates, but only in ways the party will struggle to interpret",
+    "Drawn here by the noise the party made getting in",
+    "It is afraid of the party — which makes it far more dangerous than if it weren't",
+    "A creature in the wrong place, looking for an exit, willing to go through the party to find it",
+    "Something that feeds on something other than flesh — heat, sound, fear, light",
+    "Old enough that it has learned the layout of this place better than any map",
+    "Not hunting. Nesting. The eggs are everywhere.",
+  ],
+  treasure: [
+    "Hidden so cleverly that the hider clearly didn't trust themselves to find it again",
+    "Left in plain sight because no-one who found it lived to take it",
+    "Buried under debris from a partial collapse — still there, still intact",
+    "Sealed inside something ordinary: a cask, a chest, a corpse",
+    "The treasure is obvious; what's not obvious is what's watching it",
+    "Scattered, as if someone fled mid-collection",
+    "Packed for travel and never retrieved — whoever left it planned to come back",
+    "Distributed across the room in a pattern that is itself a message",
+    "Locked in something that is itself valuable — both are the treasure",
+    "Half already taken, the rest left behind for reasons that aren't clear",
+    "Mixed in with worthless items in a way that requires time to sort",
+    "Submerged — still there, still intact, and very cold",
+    "Belonging to someone who is looking for it, and who will be here soon",
+    "Inscribed with a name and a warning; the warning is specific",
+    "Part of a set — this piece is useless without the others",
+    "Still in the hands of whoever last held it; they are not going to let go",
+    "Claimed by something that doesn't understand its value but understands ownership",
+    "Left as payment for something — it's not clear if the transaction was completed",
+    "More than it appears to be, in a way that only becomes clear later",
+    "Less than it appears to be, in the same way",
+  ],
+  special: [
+    "The geometry here is wrong in a way that takes a moment to notice",
+    "Something has been written on every surface, floor to ceiling",
+    "A mechanism with no obvious purpose, recently activated",
+    "This room is the reason the dungeon exists — everything else leads here",
+    "Evidence of two different groups, neither of which won",
+    "A thing preserved perfectly, impossibly, out of its time",
+    "The room responds to presence — something changes when you enter",
+    "A map of somewhere, rendered in obsessive detail, covering every wall",
+    "The air in here is different — cleaner, or denser, or somehow older",
+    "A mirror that doesn't reflect correctly, or reflects something that isn't there",
+    "The room is occupied by something that is not alive and not a mechanism",
+    "A record of everyone who has passed through here — the party's names are already on it",
+    "Something is being maintained: supplied, cleaned, kept running, by no visible hand",
+    "A sealed room within the room — whatever is inside has not been disturbed",
+    "The room changes between visits in ways that are hard to prove but impossible to ignore",
+    "An audience chamber — the seat is occupied by something that has been waiting",
+    "A library of a single subject, pursued to an extreme no sane person would reach",
+    "The room contains an exact replica of a place the party knows",
+    "Time moves differently here — the candles have not burned down, the food has not rotted",
+    "Whatever happened here left a mark on the room itself; it can be read like a text",
+  ],
+  trapped: [
+    "The trap is the room — every exit triggers something",
+    "Designed to maim, not kill; whoever made this wanted prisoners",
+    "Sprung once already. Reset. Recently.",
+    "A false floor over something worse",
+    "The trigger is the treasure — pick it up and find out",
+    "Mechanical, old, partially broken — which part is the question",
+    "The trap has already killed something; its body is still in the trigger position",
+    "A trap that targets a specific kind of person — it knows what to look for",
+    "A trap that triggers slowly, so that the victim is far from help before it activates",
+    "A trap designed to separate the group, not harm them — yet",
+    "Multiple traps layered: defeating one reveals or activates another",
+    "A trap that is also a message: this was built by someone who wanted you specifically",
+    "The trap is also a puzzle — it can be disarmed, but only if you understand its logic",
+    "A trap that looks like it has already been disarmed",
+    "A trap that targets senses rather than bodies — darkness, silence, disorientation",
+    "The trap is the ceiling, waiting for a specific noise or weight",
+    "A trap that works by misdirection: the real trigger is not the obvious one",
+    "A trap that tags rather than harms — something will know you were here",
+    "A trap with a kill switch somewhere in this room — find it before the trap activates",
+    "A trap that the current occupants don't know about either",
+  ],
+  empty: [
+    "Empty now, but something lived here recently and left in a hurry",
+    "A room with two doors and a suspicious lack of anything interesting",
+    "Structurally unsound — the ceiling argues with gravity",
+    "Signs of habitation: old fire pit, scratched walls, rubbish",
+    "Water seeps through one wall. The floor glistens.",
+    "Acoustics are strange here. Sounds carry from elsewhere.",
+    "The room smells of something specific — food, chemicals, animal, incense",
+    "A single piece of furniture, too large to have come through any of the doors",
+    "The floor is covered in the prints of something that came in and did not leave",
+    "A drain in the centre of the floor, clogged with something recent",
+    "Someone used this room as a sleeping place — the marks are still warm",
+    "Evidence of a struggle with no conclusion — no blood, no body, no explanation",
+    "A room that has been methodically stripped of everything except the walls",
+    "The walls are covered in the same symbol, repeated thousands of times",
+    "A window into the next room, sealed with something translucent",
+    "The room is perfectly clean in a way that suggests it was cleaned very recently",
+    "A chair facing a wall, positioned with care",
+    "The room is full of a sound — breathing, dripping, ticking — with no visible source",
+    "Markings on the floor indicate where things were placed, but the things are gone",
+    "Nothing. Genuinely, completely, unsettlingly nothing.",
+  ],
+};
+
+const DUNG_SPARK = {
+  'monster-t': {
+    col1: { heading: 'Creature', entries: [
+      'Undead','Beast','Humanoid','Construct','Outsider','Vermin',
+      'Aberration','Spirit','Shapeshifter','Elemental','Hybrid','Ancient',
+      'Fungal','Aquatic','Swarm','Mechanical','Celestial','Infernal','Fey','Dragon',
+    ]},
+    col2: { heading: 'Motivation', entries: [
+      'Territorial','Hungry','Bound','Protecting','Deceiving','Sleeping',
+      'Patrolling','Wounded','Collecting','Corrupted','Fleeing','Awakening',
+      'Grieving','Nesting','Breeding','Waiting','Bargaining','Obsessed','Exiled','Cursed',
+    ]},
+  },
+  monster: {
+    col1: { heading: 'Creature', entries: [
+      'Undead','Beast','Humanoid','Construct','Outsider','Vermin',
+      'Aberration','Spirit','Shapeshifter','Elemental','Hybrid','Ancient',
+      'Fungal','Aquatic','Swarm','Mechanical','Celestial','Infernal','Fey','Dragon',
+    ]},
+    col2: { heading: 'Behaviour', entries: [
+      'Ambushing','Scavenging','Nesting','Migrating','Hunting','Hiding',
+      'Frenzied','Starving','Lurking','Scouting','Dormant','Panicking',
+      'Mimicking','Herding','Spawning','Following','Retreating','Circling','Sick','Blind',
+    ]},
+  },
+  treasure: {
+    col1: { heading: 'Origin', entries: [
+      'Looted','Commissioned','Stolen','Inherited','Abandoned','Cursed',
+      'Hoarded','Bargained','Discovered','Smuggled','Consecrated','Forgotten',
+      'Tribute','Ransom','Salvaged','Forged','Diplomatic','Buried','Traded','Seized',
+    ]},
+    col2: { heading: 'Form', entries: [
+      'Weapon','Tome','Relic','Coin hoard','Map','Gem',
+      'Vessel','Armour','Key','Idol','Correspondence','Tool',
+      'Seal','Standard','Instrument','Component','Creature','Formula','Deed','Crown',
+    ]},
+  },
+  special: {
+    col1: { heading: 'Feature', entries: [
+      'Altar','Mechanism','Portal','Inscription','Statue','Pit',
+      'Pool','Mirror','Cage','Throne','Forge','Archive',
+      'Obelisk','Orrery','Sarcophagus','Hearth','Well','Font','Gate','Vault',
+    ]},
+    col2: { heading: 'Quality', entries: [
+      'Ancient','Broken','Active','Cursed','Sealed','Watching',
+      'Singing','Burning','Frozen','Shifting','Hollow','Disputed',
+      'Hungry','Dreaming','Bleeding','Counting','Growing','Whispering','Locked','Incomplete',
+    ]},
+  },
+  trapped: {
+    col1: { heading: 'Trigger', entries: [
+      'Pressure plate','Tripwire','Door handle','Torch sconce','Treasure pick-up','Floor tile',
+      'Ceiling crack','Threshold cross','Water contact','Weight change','Sound','Light',
+      'Magic use','Eye contact','Removing an object','Speaking aloud','Breaking line of sight','Heat','Cold','Time delay',
+    ]},
+    col2: { heading: 'Effect', entries: [
+      'Pit','Spikes','Poison gas','Flooding','Alarm','Collapse',
+      'Fire','Darts','Net','Confusion','Teleport','Seal',
+      'Reversal','Paralysis','Blinding','Summoning','Curse','Starvation','Substitution','Revealing',
+    ]},
+  },
+  empty: {
+    col1: { heading: 'Atmosphere', entries: [
+      'Cold','Damp','Smoky','Stale','Foul','Silent',
+      'Echoing','Dark','Lit','Warm','Fetid','Charged',
+      'Perfumed','Metallic','Sweet','Acrid','Sterile','Electric','Still','Oppressive',
+    ]},
+    col2: { heading: 'Detail', entries: [
+      'Scratch marks','Old fire','Rubbish','Bones','Graffiti','Dripping water',
+      'Fungi','Webbing','Sand','Slime','Feathers','Rags',
+      'Teeth','Chalk lines','Broken glass','Old food','Wax pools','Shell casings','String','Soot',
+    ]},
+  },
+};
+
+// BSD layouts: each is an array of [from,to] edges for 6 nodes (0–5).
+// Based on the polygon-derived topologies from the BSD article (6 nodes, 6 edges, at least 1 loop).
+const BSD_LAYOUTS = [
+  // Triangle base (0-1-2) + 3 extra nodes
+  [[0,1],[1,2],[0,2],[0,3],[1,4],[2,5]],           // 0: triangle + 3 legs
+  [[0,1],[1,2],[0,2],[2,3],[3,4],[4,5]],           // 1: triangle + chain
+  [[0,1],[1,2],[0,2],[0,3],[3,4],[3,5]],           // 2: triangle + fork
+  [[0,1],[1,2],[0,2],[2,3],[3,4],[0,4]],           // 3: triangle + loop tail
+  // Square base (0-1-2-3) + 2 extra nodes
+  [[0,1],[1,2],[2,3],[0,3],[0,4],[1,5]],           // 4: square + 2 legs same side
+  [[0,1],[1,2],[2,3],[0,3],[2,4],[3,5]],           // 5: square + 2 legs far corners
+  [[0,1],[1,2],[2,3],[0,3],[1,4],[4,5]],           // 6: square + chain leg
+  // Pentagon base (0-1-2-3-4) + 1 extra node
+  [[0,1],[1,2],[2,3],[3,4],[0,4],[2,5]],           // 7: pentagon + leg at mid
+  [[0,1],[1,2],[2,3],[3,4],[0,4],[0,5]],           // 8: pentagon + leg at start
+  // Hexagon with chord
+  [[0,1],[1,2],[2,3],[3,4],[4,5],[0,5]],           // 9: pure ring (add chord as 7th edge but trim)
+  // Cross / star variants
+  [[0,1],[0,2],[0,3],[0,4],[1,5],[2,5]],           // 10: hub+spoke with loop
+  [[0,1],[1,2],[2,3],[3,5],[4,5],[0,4]],           // 11: zigzag loop
+];
+
+const CONN_LENGTHS = ['Doorway','Doorway','Doorway','Short corridor','Short corridor','Long corridor'];
+
+// Room types formula: 1 monster+treasure, 1 monster, 1 treasure, 3 empty
+const ROOM_POOL = ['monster-t','monster','treasure','empty','empty','empty'];
+
+// ══════════════════════════════════════════════════════
+//  DUNGEON STATE
+// ══════════════════════════════════════════════════════
+let currentDungeon = null;
+let showDungPrompts = true;
+
+// ══════════════════════════════════════════════════════
+//  DUNGEON GENERATION
+// ══════════════════════════════════════════════════════
+
+function rollDungSpark(type) {
+  const t = (CFG_DUNG_SPARKS||DUNG_SPARK)[type] || DUNG_SPARK[type];
+  return { a: t.col1.entries[rnd(20)], b: t.col2.entries[rnd(20)] };
+}
+
+function generateDungeonData(seed = null) {
+  // Pick layout
+  const layoutIdx = rnd(BSD_LAYOUTS.length);
+  const edges = BSD_LAYOUTS[layoutIdx];
+
+  // Stock rooms — biased by seed node type
+  let basePool = [...ROOM_POOL];
+  if (seed) {
+    if (seed.nodeType === 'danger') {
+      // More monsters: swap one empty for an extra monster
+      const ei = basePool.indexOf('empty');
+      basePool[ei] = 'monster';
+    } else if (seed.nodeType === 'treasure') {
+      // More treasure: swap one monster for treasure
+      const mi = basePool.indexOf('monster');
+      basePool[mi] = 'treasure';
+    } else if (seed.nodeType === 'feature') {
+      // More special atmosphere: keep pool but will bias prompts
+    }
+  }
+  const typePool = shuffle(basePool);
+
+  // Assign special & trapped among empty slots
+  const emptyIdxs = [];
+  typePool.forEach((t, i) => { if (t === 'empty') emptyIdxs.push(i); });
+  const shuffledEmpty = shuffle(emptyIdxs);
+  if (shuffledEmpty[0] !== undefined) typePool[shuffledEmpty[0]] = 'special';
+  if (shuffledEmpty[1] !== undefined) typePool[shuffledEmpty[1]] = 'trapped';
+
+  // Pick prompt pool — seeded or default
+  const activeSeeded = CFG_SEEDED_PROMPTS || SEEDED_PROMPTS;
+  const activeDungPrompts = CFG_DUNG_PROMPTS || DUNG_PROMPTS;
+  const promptPool = seed && activeSeeded[seed.nodeType]
+    ? activeSeeded[seed.nodeType]
+    : activeDungPrompts;
+
+  // Seed spark: for seeded dungeons, bias the first monster/treasure/special
+  // rooms to echo the site node's own spark vocabulary
+  const rooms = typePool.map((type, i) => ({
+    id: i + 1,
+    type,
+    title: '',
+    notes: '',
+    prompt: pick(promptPool[type] || (CFG_DUNG_PROMPTS||DUNG_PROMPTS)[type] || DUNG_PROMPTS[type]),
+    desc: pick(promptPool[type] || (CFG_DUNG_PROMPTS||DUNG_PROMPTS)[type] || DUNG_PROMPTS[type]),
+    spark: rollDungSpark(type),
+    seeded: !!seed,
+  }));
+
+  // Assign 1 or 2 entrances
+  const entranceIdx = rnd(6);
+  rooms[entranceIdx].isEntrance = true;
+  const hasSecond = Math.random() < 0.35;
+  if (hasSecond) {
+    let idx2;
+    do { idx2 = rnd(6); } while (idx2 === entranceIdx);
+    rooms[idx2].isSecondEntrance = true;
+  }
+
+  // Guarantee all 6 nodes are reachable via a connectivity check + repair
+  let safeEdges = [...edges];
+
+  function connectedNodes(edgeList) {
+    const adj = Array.from({length: 6}, () => []);
+    for (const [a, b] of edgeList) { adj[a].push(b); adj[b].push(a); }
+    const visited = new Set([0]);
+    const queue = [0];
+    while (queue.length) {
+      const n = queue.shift();
+      for (const nb of adj[n]) { if (!visited.has(nb)) { visited.add(nb); queue.push(nb); } }
+    }
+    return visited;
+  }
+
+  // Find any isolated nodes and wire them to the nearest connected node
+  let visited = connectedNodes(safeEdges);
+  for (let node = 0; node < 6; node++) {
+    if (!visited.has(node)) {
+      // Connect to a random already-visited node
+      const target = [...visited][rnd(visited.size)];
+      safeEdges.push([node, target]);
+      // Trim one non-spanning edge to keep count at 6
+      // Remove the last edge that isn't part of the spanning path
+      for (let i = safeEdges.length - 2; i >= 0; i--) {
+        const without = [...safeEdges.slice(0, i), ...safeEdges.slice(i + 1)];
+        if (connectedNodes(without).size === 6) {
+          safeEdges = without;
+          break;
+        }
+      }
+      visited = connectedNodes(safeEdges);
+    }
+  }
+
+  // Assign connection lengths
+  const connLengthPool = shuffle([...CONN_LENGTHS]);
+  const connections = safeEdges.map(([from, to], i) => ({
+    from, to,
+    length: connLengthPool[i] || 'Doorway',
+  }));
+
+  return { rooms, connections, layoutIdx, seed: seed || null };
+}
+
+// ══════════════════════════════════════════════════════
+//  DUNGEON CANVAS
+// ══════════════════════════════════════════════════════
+
+// Compute 2D positions for 6 nodes given a layout index
+function getDungeonNodePositions(size, layoutIdx) {
+  const pad = size * 0.14;
+  const w = size - pad * 2;
+  const h = size - pad * 2;
+  const cx = size / 2, cy = size / 2;
+
+  // Pre-defined position sets matched to layout families
+  // Each set: 6 [x,y] in normalised 0-1 space (then scaled)
+  const posSets = [
+    // 0: triangle + 3 legs
+    [[0.5,0.18],[0.18,0.7],[0.82,0.7],[0.5,0.82],[0.07,0.35],[0.93,0.35]],
+    // 1: triangle + chain
+    [[0.25,0.25],[0.75,0.25],[0.5,0.65],[0.5,0.85],[0.75,0.65],[0.92,0.82]],
+    // 2: triangle + fork
+    [[0.5,0.2],[0.2,0.65],[0.8,0.65],[0.5,0.88],[0.1,0.88],[0.9,0.88]],
+    // 3: triangle + loop tail
+    [[0.25,0.22],[0.75,0.22],[0.5,0.58],[0.75,0.78],[0.92,0.58],[0.25,0.58]],
+    // 4: square + 2 legs same side
+    [[0.2,0.2],[0.8,0.2],[0.8,0.8],[0.2,0.8],[0.2,0.5],[0.5,0.08]],
+    // 5: square + 2 legs far corners
+    [[0.2,0.2],[0.8,0.2],[0.8,0.8],[0.2,0.8],[0.8,0.5],[0.08,0.5]],
+    // 6: square + chain leg
+    [[0.2,0.2],[0.8,0.2],[0.8,0.8],[0.2,0.8],[0.5,0.08],[0.5,0.88]],
+    // 7: pentagon + leg mid
+    [[0.5,0.12],[0.88,0.38],[0.75,0.82],[0.25,0.82],[0.12,0.38],[0.5,0.55]],
+    // 8: pentagon + leg start
+    [[0.5,0.12],[0.88,0.38],[0.75,0.82],[0.25,0.82],[0.12,0.38],[0.5,0.88]],
+    // 9: ring
+    [[0.5,0.1],[0.87,0.32],[0.87,0.72],[0.5,0.9],[0.13,0.72],[0.13,0.32]],
+    // 10: hub+spoke
+    [[0.5,0.5],[0.5,0.12],[0.88,0.75],[0.12,0.75],[0.88,0.25],[0.12,0.25]],
+    // 11: zigzag loop
+    [[0.15,0.2],[0.5,0.2],[0.85,0.4],[0.85,0.75],[0.5,0.75],[0.15,0.55]],
+  ];
+
+  const set = posSets[layoutIdx] || posSets[0];
+  return set.map(([nx, ny]) => ({
+    x: pad + nx * w,
+    y: pad + ny * h,
+  }));
+}
+
+const ROOM_COLORS = {
+  'monster-t': { fill: '#f5dde0', stroke: '#7a1f2e', label: 'M+T' },
+  monster:     { fill: '#f5e4dc', stroke: '#8b2e0a', label: 'M' },
+  treasure:    { fill: '#f5f0d8', stroke: '#9a7c2e', label: 'T' },
+  special:     { fill: '#ede0f5', stroke: '#5a3a8a', label: 'S' },
+  trapped:     { fill: '#e8e4d8', stroke: '#6b5c3e', label: 'Tr' },
+  empty:       { fill: '#ede3c4', stroke: '#b4956a', label: 'E' },
+};
+
+function drawDungeonCanvas(dungeon) {
+  const canvas = document.getElementById('dung-canvas');
+  const wrap = document.getElementById('dung-canvas-wrap');
+  const size = wrap.clientWidth;
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  const scale = size / 320;
+
+  ctx.clearRect(0, 0, size, size);
+
+  const vignette = ctx.createRadialGradient(size/2, size/2, size*0.15, size/2, size/2, size*0.65);
+  vignette.addColorStop(0, 'rgba(237,227,196,0)');
+  vignette.addColorStop(1, 'rgba(200,185,150,0.2)');
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, size, size);
+
+  const positions = getDungeonNodePositions(size, dungeon.layoutIdx);
+  const nodeR = Math.max(14, size * 0.055);
+
+  // Draw connections first
+  for (const conn of dungeon.connections) {
+    const from = positions[conn.from];
+    const to   = positions[conn.to];
+
+    ctx.save();
+    ctx.strokeStyle = '#4a3820';
+    ctx.lineWidth = 1.6 * scale;
+
+    if (conn.length === 'Long corridor') {
+      ctx.globalAlpha = 0.5;
+      ctx.setLineDash([6*scale, 3*scale]);
+    } else if (conn.length === 'Short corridor') {
+      ctx.globalAlpha = 0.75;
+      ctx.setLineDash([]);
+    } else {
+      ctx.globalAlpha = 1;
+      ctx.setLineDash([]);
+      ctx.lineWidth = 2 * scale;
+    }
+
+    ctx.beginPath();
+    ctx.moveTo(from.x, from.y);
+    ctx.lineTo(to.x, to.y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Draw rooms
+  for (let i = 0; i < dungeon.rooms.length; i++) {
+    const room = dungeon.rooms[i];
+    const pos  = positions[i];
+    const c    = ROOM_COLORS[room.type];
+
+    ctx.save();
+
+    // Room circle
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, nodeR, 0, Math.PI * 2);
+    ctx.fillStyle = c.fill;
+    ctx.fill();
+    ctx.strokeStyle = c.stroke;
+    ctx.lineWidth = 2 * scale;
+    ctx.stroke();
+
+    // Entrance marker
+    if (room.isEntrance || room.isSecondEntrance) {
+      ctx.strokeStyle = room.isEntrance ? '#2a6e3f' : '#6b5c3e';
+      const roomNeighbours = dungeon.connections
+        .filter(cn => cn.from === i || cn.to === i)
+        .map(cn => positions[cn.from === i ? cn.to : cn.from]);
+      drawEntranceArrow(ctx, pos.x, pos.y, nodeR, scale, !!room.isSecondEntrance, roomNeighbours);
+    }
+
+    // Room number
+    ctx.fillStyle = '#1a1208';
+    ctx.font = `bold ${Math.round(nodeR * 0.72)}px 'Cinzel', serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(room.id, pos.x, pos.y);
+
+    // Type label below
+    ctx.fillStyle = c.stroke;
+    ctx.font = `${Math.round(nodeR * 0.48)}px 'Cinzel', serif`;
+    ctx.fillText(c.label, pos.x, pos.y + nodeR + 8*scale);
+
+    ctx.restore();
+  }
+}
+
+// ══════════════════════════════════════════════════════
+//  DUNGEON OUTPUT PANEL
+// ══════════════════════════════════════════════════════
+
+const ROOM_TYPE_LABELS = {
+  'monster-t': 'Monster + Treasure',
+  monster:     'Monster',
+  treasure:    'Treasure',
+  special:     'Special',
+  trapped:     'Trapped',
+  empty:       'Empty',
+};
+
+function renderDungeonOutput(dungeon) {
+  const panel = document.getElementById('dung-output');
+
+  // Seed banner
+  let seedHTML = '';
+  if (dungeon.seed) {
+    const s = dungeon.seed;
+    const typeLabel = s.nodeType.charAt(0).toUpperCase() + s.nodeType.slice(1);
+    seedHTML = `
+      <div class="seed-banner">
+        <div class="seed-banner-icon">⤵</div>
+        <div class="seed-banner-body">
+          <div class="seed-banner-title">Expanded from Site Node ${s.nodeId} — ${typeLabel}</div>
+          <div class="seed-banner-detail">
+            Spark: <span class="seed-banner-spark">${s.sparkA} × ${s.sparkB}</span>
+            ${s.notes ? `&nbsp;·&nbsp; "${s.notes}"` : ''}
+          </div>
+        </div>
+      </div>`;
+  }
+
+  // Entrance badges
+  const entRooms = dungeon.rooms.filter(r => r.isEntrance || r.isSecondEntrance);
+  let entHTML = '';
+  if (entRooms.length) {
+    entHTML = '<div class="entrance-row">';
+    for (const r of entRooms) {
+      if (r.isEntrance)       entHTML += `<span class="badge entrance">⬆ Entrance — Room ${r.id}</span>`;
+      if (r.isSecondEntrance) entHTML += `<span class="badge hidden-e">⋯ Alt. Entrance — Room ${r.id}</span>`;
+    }
+    entHTML += '</div>';
+  }
+
+  // Legend
+  const legendHTML = `
+    <div class="legend">
+      <span class="legend-item"><span class="node-type-badge room-type-monster-t" style="font-size:0.62rem;padding:0.1rem 0.3rem;">M+T</span> Monster+Treasure</span>
+      <span class="legend-item"><span class="node-type-badge room-type-monster"   style="font-size:0.62rem;padding:0.1rem 0.3rem;">M</span> Monster</span>
+      <span class="legend-item"><span class="node-type-badge room-type-treasure"  style="font-size:0.62rem;padding:0.1rem 0.3rem;">T</span> Treasure</span>
+      <span class="legend-item"><span class="node-type-badge room-type-special"   style="font-size:0.62rem;padding:0.1rem 0.3rem;">S</span> Special</span>
+      <span class="legend-item"><span class="node-type-badge room-type-trapped"   style="font-size:0.62rem;padding:0.1rem 0.3rem;">Tr</span> Trapped</span>
+      <span class="legend-item"><span class="node-type-badge room-type-empty"     style="font-size:0.62rem;padding:0.1rem 0.3rem;">E</span> Empty</span>
+    </div>`;
+
+  // Room cards
+  let cardsHTML = '<div class="node-cards">';
+  for (const room of dungeon.rooms) {
+    const typeKey = room.type.replace('-','_').replace('+','_');
+    const cssType = room.type === 'monster-t' ? 'monster-t' : room.type;
+    const entTag = room.isEntrance
+      ? '<span class="entrance-indicator">↓ Entrance</span>'
+      : room.isSecondEntrance
+        ? '<span class="entrance-indicator" style="color:var(--muted)">⋯ Alt. Entry</span>'
+        : '';
+
+    let promptHTML = '';
+    if (showDungPrompts) {
+      const t = DUNG_SPARK[room.type];
+      promptHTML = `
+        <div class="spark-table" id="dsp-${room.id}">
+          <div class="spark-header">
+            <span class="spark-title">Spark</span>
+            <button class="spark-reroll" onclick="rerollDungSpark(${room.id - 1})" title="Re-roll spark">↺</button>
+          </div>
+          <div class="spark-cols">
+            <div class="spark-col">
+              <div class="spark-col-head">${t.col1.heading}</div>
+              <div class="dsa-${room.id} spark-val">${room.spark.a}</div>
+            </div>
+            <div class="spark-divider">×</div>
+            <div class="spark-col">
+              <div class="spark-col-head">${t.col2.heading}</div>
+              <div class="dsb-${room.id} spark-val">${room.spark.b}</div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    cardsHTML += `
+      <div class="node-card">
+        <div class="node-card-header">
+          <span class="node-num">${room.id}.</span>
+          <span class="node-type-badge room-type-${cssType}">${ROOM_TYPE_LABELS[room.type]}</span>
+          ${entTag}
+        </div>
+        <input class="node-title" type="text"
+          placeholder="Title…"
+          value="${room.title}"
+          oninput="saveDungTitle(${room.id - 1}, this.value)">
+        <textarea class="node-desc" rows="2"
+          placeholder="Description…"
+          oninput="saveDungDesc(${room.id - 1}, this.value); autoResize(this)"
+          onfocus="autoResize(this)">${room.desc}</textarea>
+        ${promptHTML}
+      </div>`;
+  }
+  cardsHTML += '</div>';
+
+  // Connections table
+  const connLabelMap = { Doorway: 'door', 'Short corridor': 'corridor', 'Long corridor': 'long' };
+  let connHTML = `
+    <div class="routes-section">
+      <div class="routes-title">Connections</div>
+      <table class="conn-table">
+        <thead><tr><th></th><th>Rooms</th><th>Type</th></tr></thead>
+        <tbody>`;
+  for (const c of dungeon.connections) {
+    const cls = connLabelMap[c.length] || 'door';
+    connHTML += `
+      <tr>
+        <td class="conn-line-cell"><span class="conn-line ${cls}"></span></td>
+        <td>${c.from + 1} ↔ ${c.to + 1}</td>
+        <td class="conn-len">${c.length}</td>
+      </tr>`;
+  }
+  connHTML += '</tbody></table></div>';
+
+  panel.innerHTML = seedHTML + legendHTML + entHTML + cardsHTML + connHTML;
+}
+
+// ══════════════════════════════════════════════════════
+//  DUNGEON ACTIONS
+// ══════════════════════════════════════════════════════
+
+
+function expandNodeToDungeon(nodeIdx) {
+  if (!currentSite) return;
+  const node = currentSite.nodes[nodeIdx];
+  const seed = {
+    nodeType:  node.type,
+    nodeId:    node.id,
+    sparkA:    node.spark.a,
+    sparkB:    node.spark.b,
+    prompt:    node.prompt,
+    notes:     node.notes,
+  };
+  currentDungeon = generateDungeonData(seed);
+  // Switch to dungeon tab
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-dungeons').classList.add('active');
+  document.querySelectorAll('.tab-btn')[1].classList.add('active');
+  document.getElementById('dung-canvas-empty').style.display = 'none';
+  drawDungeonCanvas(currentDungeon);
+  renderDungeonOutput(currentDungeon);
+  document.getElementById('dung-pdf-btn').style.display = '';
+  document.getElementById('dung-png-btn').style.display = '';
+  // Scroll to top of panel
+  document.querySelector('.panel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function generateDungeon() {
+  currentDungeon = generateDungeonData();
+  document.getElementById('dung-canvas-empty').style.display = 'none';
+  drawDungeonCanvas(currentDungeon);
+  renderDungeonOutput(currentDungeon);
+  document.getElementById('dung-pdf-btn').style.display = '';
+  document.getElementById('dung-png-btn').style.display = '';
+}
+
+function toggleDungPrompts() {
+  showDungPrompts = document.getElementById('dung-prompts-toggle').checked;
+  if (currentDungeon) renderDungeonOutput(currentDungeon);
+}
+
+function saveDungNote(idx, value) {
+  if (currentDungeon) currentDungeon.rooms[idx].notes = value;
+}
+function saveDungTitle(idx, value) {
+  if (currentDungeon) currentDungeon.rooms[idx].title = value;
+}
+function saveDungDesc(idx, value) {
+  if (currentDungeon) currentDungeon.rooms[idx].desc = value;
+}
+
+function rerollDungSpark(idx) {
+  if (!currentDungeon) return;
+  const room = currentDungeon.rooms[idx];
+  room.spark = rollDungSpark(room.type);
+  const cell = document.getElementById(`dsp-${room.id}`);
+  if (cell) {
+    cell.querySelector(`.dsa-${room.id}`).textContent = room.spark.a;
+    cell.querySelector(`.dsb-${room.id}`).textContent = room.spark.b;
+    cell.classList.remove('spark-flash');
+    void cell.offsetWidth;
+    cell.classList.add('spark-flash');
+  }
+}
+
+
+// ══════════════════════════════════════════════════════
+//  EXPORT ENGINE
+// ══════════════════════════════════════════════════════
+
+// Parchment palette (must match CSS vars for off-screen canvas)
+const EX = {
+  parchment:  '#f5eed8',
+  parchmentD: '#e8dfc0',
+  parchmentM: '#ede3c4',
+  ink:        '#1a1208',
+  muted:      '#6b5c3e',
+  border:     '#c4a97a',
+  gold:       '#9a7c2e',
+  accent:     '#8b2e0a',
+  feature:    '#2a5c8a',
+  danger:     '#8b2e0a',
+  treasure:   '#9a7c2e',
+  entrance:   '#2a6e3f',
+  monsterT:   '#7a1f2e',
+  special:    '#5a3a8a',
+};
+
+// Draw a full export canvas: diagram left, text panel right
+function buildExportCanvas(mode) {
+  const W = 1414, H = 1000;
+  const DIAG = 600;   // diagram area width
+  const PAD  = 40;
+  const TEXT_X = DIAG + PAD;
+  const TEXT_W = W - DIAG - PAD * 2;
+
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+
+  // Background
+  ctx.fillStyle = EX.parchment;
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle texture overlay
+  for (let i = 0; i < 3000; i++) {
+    ctx.fillStyle = `rgba(${Math.random()>0.5?180:120},${Math.random()>0.5?160:100},80,0.03)`;
+    ctx.fillRect(Math.random()*W, Math.random()*H, 1, 1);
+  }
+
+  // Divider line
+  ctx.strokeStyle = EX.border;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(DIAG, PAD); ctx.lineTo(DIAG, H - PAD);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  if (mode === 'site') {
+    drawSiteExport(ctx, currentSite, PAD, PAD, DIAG - PAD*2, H - PAD*2);
+    drawSiteText(ctx, currentSite, TEXT_X, PAD, TEXT_W, H - PAD*2);
+  } else {
+    drawDungeonExport(ctx, currentDungeon, PAD, PAD, DIAG - PAD*2, H - PAD*2);
+    drawDungeonText(ctx, currentDungeon, TEXT_X, PAD, TEXT_W, H - PAD*2);
+  }
+
+  // Border frame
+  ctx.strokeStyle = EX.border;
+  ctx.lineWidth = 2;
+  ctx.setLineDash([]);
+  ctx.strokeRect(8, 8, W-16, H-16);
+
+  // Footer
+  ctx.fillStyle = EX.muted;
+  ctx.font = 'italic 18px Georgia, serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('Site & Dungeon Generator · Knights & Bite-Sized Dungeons', W/2, H - 10);
+
+  return cv;
+}
+
+// ── Redraw site diagram into export canvas region ──
+function drawSiteExport(ctx, site, ox, oy, w, h) {
+  const cx = ox + w/2, cy = oy + h/2;
+  const r  = Math.min(w, h) * 0.33;
+  const scale = Math.min(w, h) / 320;
+  const nodeR = Math.max(14, Math.min(w,h) * 0.052);
+
+  function hexPts() {
+    const pts = [];
+    for (let i = 0; i < 6; i++) {
+      const a = (Math.PI/3)*i - Math.PI/6;
+      pts.push({ x: cx + r*Math.cos(a), y: cy + r*Math.sin(a) });
+    }
+    pts.push({ x: cx, y: cy });
+    return pts;
+  }
+  const hp = hexPts();
+
+  // Faint hex
+  ctx.save();
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) { i===0 ? ctx.moveTo(hp[i].x,hp[i].y) : ctx.lineTo(hp[i].x,hp[i].y); }
+  ctx.closePath();
+  ctx.strokeStyle = 'rgba(196,169,122,0.25)'; ctx.lineWidth=1; ctx.stroke();
+  ctx.restore();
+
+  // Routes
+  for (const route of site.routes) {
+    const fp = hp[site.nodes[route.from].hexPos];
+    const tp = hp[site.nodes[route.to].hexPos];
+    ctx.save();
+    ctx.lineWidth = 2 * scale;
+    if (route.routeType === 'open') {
+      ctx.strokeStyle = EX.ink; ctx.setLineDash([]);
+    } else if (route.routeType === 'closed') {
+      ctx.strokeStyle = EX.accent; ctx.setLineDash([]);
+    } else {
+      ctx.strokeStyle = EX.muted; ctx.setLineDash([5*scale, 4*scale]);
+    }
+    ctx.beginPath(); ctx.moveTo(fp.x,fp.y); ctx.lineTo(tp.x,tp.y); ctx.stroke();
+    if (route.routeType === 'closed') {
+      const mx=(fp.x+tp.x)/2, my=(fp.y+tp.y)/2, xs=5*scale;
+      ctx.lineWidth=1.5*scale; ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(mx-xs,my-xs); ctx.lineTo(mx+xs,my+xs);
+      ctx.moveTo(mx+xs,my-xs); ctx.lineTo(mx-xs,my+xs);
+      ctx.stroke();
+    }
+    ctx.setLineDash([]); ctx.restore();
+  }
+
+  // Nodes
+  for (const node of site.nodes) {
+    const pt = hp[node.hexPos];
+    const neighbourPts = site.routes
+      .filter(r => r.from===site.nodes.indexOf(node)||r.to===site.nodes.indexOf(node))
+      .map(r => hp[site.nodes[r.from===site.nodes.indexOf(node)?r.to:r.from].hexPos]);
+    exDrawSiteNode(ctx, pt.x, pt.y, nodeR, node, scale, neighbourPts);
+  }
+}
+
+function exDrawSiteNode(ctx, x, y, r, node, scale, neighbourPts) {
+  const cols = {
+    feature:  { fill:'#dceaf5', stroke: EX.feature },
+    danger:   { fill:'#f5e0d8', stroke: EX.danger },
+    treasure: { fill:'#f5eed8', stroke: EX.treasure },
+  };
+  const c = cols[node.type];
+  ctx.save();
+  if (node.type==='feature') {
+    ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2);
+    ctx.fillStyle=c.fill; ctx.fill();
+    ctx.strokeStyle=c.stroke; ctx.lineWidth=2*scale; ctx.stroke();
+  } else if (node.type==='danger') {
+    const hh=r*1.6;
+    ctx.beginPath();
+    ctx.moveTo(x,y-hh*0.65); ctx.lineTo(x+r*1.05,y+hh*0.35); ctx.lineTo(x-r*1.05,y+hh*0.35);
+    ctx.closePath(); ctx.fillStyle=c.fill; ctx.fill();
+    ctx.strokeStyle=c.stroke; ctx.lineWidth=2*scale; ctx.stroke();
+  } else {
+    const d=r*1.15;
+    ctx.beginPath();
+    ctx.moveTo(x,y-d); ctx.lineTo(x+d,y); ctx.lineTo(x,y+d); ctx.lineTo(x-d,y);
+    ctx.closePath(); ctx.fillStyle=c.fill; ctx.fill();
+    ctx.strokeStyle=c.stroke; ctx.lineWidth=2*scale; ctx.stroke();
+  }
+  if (node.isEntrance || node.isHiddenEntrance) {
+    ctx.strokeStyle = node.isEntrance ? EX.entrance : EX.muted;
+    drawEntranceArrow(ctx, x, y, r, scale, !!node.isHiddenEntrance, neighbourPts);
+  }
+  ctx.fillStyle=EX.ink;
+  ctx.font=`bold ${Math.round(r*0.75)}px serif`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(node.id, x, y+0.5);
+  ctx.restore();
+}
+
+// ── Redraw dungeon diagram into export canvas region ──
+function drawDungeonExport(ctx, dungeon, ox, oy, w, h) {
+  const scale = Math.min(w,h) / 320;
+  const nodeR = Math.max(14, Math.min(w,h)*0.055);
+  const positions = getDungeonExportPositions(dungeon.layoutIdx, ox, oy, w, h);
+
+  for (const conn of dungeon.connections) {
+    const fp=positions[conn.from], tp=positions[conn.to];
+    ctx.save();
+    ctx.strokeStyle='#4a3820'; ctx.lineWidth=1.8*scale;
+    if (conn.length==='Long corridor')      { ctx.globalAlpha=0.5; ctx.setLineDash([6*scale,3*scale]); }
+    else if (conn.length==='Short corridor'){ ctx.globalAlpha=0.75; }
+    else                                    { ctx.lineWidth=2.2*scale; }
+    ctx.beginPath(); ctx.moveTo(fp.x,fp.y); ctx.lineTo(tp.x,tp.y); ctx.stroke();
+    ctx.restore();
+  }
+
+  for (let i=0; i<dungeon.rooms.length; i++) {
+    const room=dungeon.rooms[i], pos=positions[i];
+    const c=ROOM_COLORS[room.type];
+    ctx.save();
+    ctx.beginPath(); ctx.arc(pos.x,pos.y,nodeR,0,Math.PI*2);
+    ctx.fillStyle=c.fill; ctx.fill();
+    ctx.strokeStyle=c.stroke; ctx.lineWidth=2.2*scale; ctx.stroke();
+    if (room.isEntrance||room.isSecondEntrance) {
+      ctx.strokeStyle=room.isEntrance?EX.entrance:EX.muted;
+      const nb=dungeon.connections.filter(cn=>cn.from===i||cn.to===i).map(cn=>positions[cn.from===i?cn.to:cn.from]);
+      drawEntranceArrow(ctx,pos.x,pos.y,nodeR,scale,!!room.isSecondEntrance,nb);
+    }
+    ctx.fillStyle=EX.ink;
+    ctx.font=`bold ${Math.round(nodeR*0.72)}px serif`;
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText(room.id,pos.x,pos.y);
+    ctx.fillStyle=c.stroke;
+    ctx.font=`${Math.round(nodeR*0.45)}px serif`;
+    ctx.fillText(c.label,pos.x,pos.y+nodeR+8*scale);
+    ctx.restore();
+  }
+}
+
+function getDungeonExportPositions(layoutIdx, ox, oy, w, h) {
+  // Reuse the same normalised position sets, just scaled to export region
+  const posSets = [
+    [[0.5,0.18],[0.18,0.7],[0.82,0.7],[0.5,0.82],[0.07,0.35],[0.93,0.35]],
+    [[0.25,0.25],[0.75,0.25],[0.5,0.65],[0.5,0.85],[0.75,0.65],[0.92,0.82]],
+    [[0.5,0.2],[0.2,0.65],[0.8,0.65],[0.5,0.88],[0.1,0.88],[0.9,0.88]],
+    [[0.25,0.22],[0.75,0.22],[0.5,0.58],[0.75,0.78],[0.92,0.58],[0.25,0.58]],
+    [[0.2,0.2],[0.8,0.2],[0.8,0.8],[0.2,0.8],[0.2,0.5],[0.5,0.08]],
+    [[0.2,0.2],[0.8,0.2],[0.8,0.8],[0.2,0.8],[0.8,0.5],[0.08,0.5]],
+    [[0.2,0.2],[0.8,0.2],[0.8,0.8],[0.2,0.8],[0.5,0.08],[0.5,0.88]],
+    [[0.5,0.12],[0.88,0.38],[0.75,0.82],[0.25,0.82],[0.12,0.38],[0.5,0.55]],
+    [[0.5,0.12],[0.88,0.38],[0.75,0.82],[0.25,0.82],[0.12,0.38],[0.5,0.88]],
+    [[0.5,0.1],[0.87,0.32],[0.87,0.72],[0.5,0.9],[0.13,0.72],[0.13,0.32]],
+    [[0.5,0.5],[0.5,0.12],[0.88,0.75],[0.12,0.75],[0.88,0.25],[0.12,0.25]],
+    [[0.15,0.2],[0.5,0.2],[0.85,0.4],[0.85,0.75],[0.5,0.75],[0.15,0.55]],
+  ];
+  const pad = Math.min(w,h)*0.08;
+  const set = posSets[layoutIdx]||posSets[0];
+  return set.map(([nx,ny])=>({ x: ox+pad+nx*(w-pad*2), y: oy+pad+ny*(h-pad*2) }));
+}
+
+// ── Text panel: Sites ──
+function drawSiteText(ctx, site, x, y, w, h) {
+  const LH = 22, SH = 28;
+  let cy = y + 10;
+
+  // Title
+  ctx.fillStyle = EX.gold;
+  ctx.font = 'bold 26px serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('Site', x, cy); cy += 34;
+
+  // Entrances
+  const ents = site.nodes.filter(n=>n.isEntrance||n.isHiddenEntrance);
+  for (const n of ents) {
+    ctx.fillStyle = n.isEntrance ? EX.entrance : EX.muted;
+    ctx.font = 'italic 16px Georgia, serif';
+    ctx.fillText((n.isEntrance?'↓ Entrance':'⋯ Hidden Entrance') + ` — Node ${n.id}`, x, cy);
+    cy += LH;
+  }
+  cy += 6;
+
+  // Node entries
+  const typeColors = { feature: EX.feature, danger: EX.danger, treasure: EX.treasure };
+  const typeLabels = { feature:'Feature', danger:'Danger', treasure:'Treasure' };
+
+  for (const node of site.nodes) {
+    if (cy > y + h - 60) break;
+    // Number + type
+    ctx.font = 'bold 15px serif';
+    ctx.fillStyle = EX.muted;
+    ctx.fillText(`${node.id}.`, x, cy);
+    ctx.fillStyle = typeColors[node.type];
+    ctx.font = 'bold 13px serif';
+    ctx.fillText(typeLabels[node.type].toUpperCase(), x+22, cy);
+    cy += LH - 2;
+
+    // Title (on its own line, below type)
+    if (node.title) {
+      ctx.fillStyle = EX.ink;
+      ctx.font = 'bold 15px serif';
+      ctx.fillText(node.title, x+22, cy);
+      cy += LH;
+    }
+    // Description (desc or fallback to prompt)
+    const descText = node.desc || node.prompt;
+    if (descText) {
+      ctx.fillStyle = node.desc ? EX.ink : EX.muted;
+      ctx.font = node.desc ? '14px Georgia, serif' : 'italic 13px Georgia, serif';
+      const wrapped = wrapText(ctx, descText, w - 22);
+      for (const line of wrapped) { cy += LH - 2; ctx.fillText(line, x+22, cy); }
+    }
+    // Spark
+    ctx.fillStyle = EX.muted;
+    ctx.font = 'italic 12px Georgia, serif';
+    ctx.fillText(`${node.spark.a}  ×  ${node.spark.b}`, x+22, cy + LH - 2);
+    cy += LH * 1.6 + 6;
+  }
+
+  cy += 8;
+  // Divider
+  ctx.strokeStyle = EX.border; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(x,cy); ctx.lineTo(x+w,cy); ctx.stroke();
+  ctx.setLineDash([]); cy += 14;
+
+  // Routes
+  ctx.fillStyle = EX.gold;
+  ctx.font = 'bold 14px serif';
+  ctx.fillText('ROUTES', x, cy); cy += LH + 2;
+
+  const routeLabels = { open:'Open', closed:'Closed', hidden:'Hidden' };
+  for (const r of site.routes) {
+    if (cy > y+h-10) break;
+    const fromId = site.nodes[r.from].id, toId = site.nodes[r.to].id;
+    ctx.fillStyle = r.routeType==='closed' ? EX.accent : r.routeType==='hidden' ? EX.muted : EX.ink;
+    ctx.font = '14px Georgia, serif';
+    ctx.fillText(`${fromId} ↔ ${toId}  —  ${routeLabels[r.routeType]}`, x, cy);
+    cy += LH;
+  }
+}
+
+// ── Text panel: Dungeons ──
+function drawDungeonText(ctx, dungeon, x, y, w, h) {
+  const LH = 22;
+  let cy = y + 10;
+
+  // Title
+  ctx.fillStyle = EX.gold;
+  ctx.font = 'bold 26px serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('Dungeon', x, cy); cy += 34;
+
+  // Seed banner
+  if (dungeon.seed) {
+    const s = dungeon.seed;
+    ctx.fillStyle = EX.gold;
+    ctx.font = 'italic 14px Georgia, serif';
+    ctx.fillText(`Expanded from Site Node ${s.nodeId} (${s.nodeType}) · ${s.sparkA} × ${s.sparkB}`, x, cy);
+    cy += LH + 4;
+  }
+
+  // Entrances
+  const ents = dungeon.rooms.filter(r=>r.isEntrance||r.isSecondEntrance);
+  for (const r of ents) {
+    ctx.fillStyle = r.isEntrance ? EX.entrance : EX.muted;
+    ctx.font = 'italic 16px Georgia, serif';
+    ctx.fillText((r.isEntrance?'↓ Entrance':'⋯ Alt. Entrance')+` — Room ${r.id}`, x, cy);
+    cy += LH;
+  }
+  cy += 6;
+
+  const roomTypeColors = {
+    'monster-t': EX.monsterT, monster: EX.accent, treasure: EX.treasure,
+    special: EX.special, trapped: EX.muted, empty: EX.muted,
+  };
+
+  for (const room of dungeon.rooms) {
+    if (cy > y + h - 60) break;
+    ctx.font = 'bold 15px serif';
+    ctx.fillStyle = EX.muted;
+    ctx.fillText(`${room.id}.`, x, cy);
+    ctx.fillStyle = roomTypeColors[room.type] || EX.ink;
+    ctx.font = 'bold 13px serif';
+    ctx.fillText(ROOM_TYPE_LABELS[room.type].toUpperCase(), x+22, cy);
+    cy += LH - 2;
+
+    if (room.title) {
+      ctx.fillStyle = EX.ink;
+      ctx.font = 'bold 15px serif';
+      ctx.fillText(room.title, x+22, cy);
+      cy += LH;
+    }
+    const rdesc = room.desc || room.prompt;
+    if (rdesc) {
+      ctx.fillStyle = room.desc ? EX.ink : EX.muted;
+      ctx.font = room.desc ? '14px Georgia, serif' : 'italic 13px Georgia, serif';
+      const wrapped = wrapText(ctx, rdesc, w-22);
+      for (const line of wrapped) { cy += LH - 2; ctx.fillText(line, x+22, cy); }
+    }
+    ctx.fillStyle = EX.muted;
+    ctx.font = 'italic 12px Georgia, serif';
+    ctx.fillText(`${room.spark.a}  ×  ${room.spark.b}`, x+22, cy+LH-2);
+    cy += LH * 1.6 + 6;
+  }
+
+  cy += 8;
+  ctx.strokeStyle = EX.border; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+  ctx.beginPath(); ctx.moveTo(x,cy); ctx.lineTo(x+w,cy); ctx.stroke();
+  ctx.setLineDash([]); cy += 14;
+
+  ctx.fillStyle = EX.gold;
+  ctx.font = 'bold 14px serif';
+  ctx.fillText('CONNECTIONS', x, cy); cy += LH + 2;
+
+  for (const conn of dungeon.connections) {
+    if (cy > y+h-10) break;
+    ctx.fillStyle = EX.ink;
+    ctx.font = '14px Georgia, serif';
+    ctx.fillText(`${conn.from+1} ↔ ${conn.to+1}  —  ${conn.length}`, x, cy);
+    cy += LH;
+  }
+}
+
+// ── Utility: word wrap ──
+function wrapText(ctx, text, maxW) {
+  const words = text.split(' ');
+  const lines = [];
+  let line = '';
+  for (const word of words) {
+    const test = line ? line+' '+word : word;
+    if (ctx.measureText(test).width > maxW && line) {
+      lines.push(line); line = word;
+    } else { line = test; }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+// ── Export actions ──
+function exportPNG(mode) {
+  if (mode==='site' && !currentSite) return;
+  if (mode==='dungeon' && !currentDungeon) return;
+  const cv = buildExportCanvas(mode);
+  const a = document.createElement('a');
+  a.href = cv.toDataURL('image/png');
+  a.download = mode==='site' ? 'site.png' : 'dungeon.png';
+  a.click();
+}
+
+function exportPDF(mode) {
+  if (mode==='site' && !currentSite) return;
+  if (mode==='dungeon' && !currentDungeon) return;
+
+  const btnId = mode==='site' ? 'site-pdf-btn' : 'dung-pdf-btn';
+  const btn = document.getElementById(btnId);
+  const origText = btn.innerHTML;
+  btn.innerHTML = '<span class="export-spinner"></span> Building…';
+  btn.disabled = true;
+
+  setTimeout(() => {
+    try {
+      const cv = buildExportCanvas(mode);
+      const imgData = cv.toDataURL('image/png');
+      // A4 landscape: 297 × 210 mm
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+      pdf.addImage(imgData, 'PNG', 0, 0, 297, 210);
+      pdf.save(mode==='site' ? 'site.pdf' : 'dungeon.pdf');
+    } finally {
+      btn.innerHTML = origText;
+      btn.disabled = false;
+    }
+  }, 50);
+}
+
+
+// ══════════════════════════════════════════════════════
+//  CONFIG SYSTEM
+// ══════════════════════════════════════════════════════
+
+// Live config mirrors — start as copies of the originals
+let CFG_SITE_PROMPTS   = null;
+let CFG_SITE_SPARKS    = null;
+let CFG_DUNG_PROMPTS   = null;
+let CFG_DUNG_SPARKS    = null;
+let CFG_SEEDED_PROMPTS = null;
+
+function deepClone(obj) { return JSON.parse(JSON.stringify(obj)); }
+
+function initConfig() {
+  if (CFG_SITE_PROMPTS) return; // already initialised
+  CFG_SITE_PROMPTS   = deepClone(SITE_PROMPTS);
+  CFG_SITE_SPARKS    = deepClone(SPARK_TABLES);
+  CFG_DUNG_PROMPTS   = deepClone(DUNG_PROMPTS);
+  CFG_DUNG_SPARKS    = deepClone(DUNG_SPARK);
+  CFG_SEEDED_PROMPTS = deepClone(SEEDED_PROMPTS);
+}
+
+// After apply, generation functions read from CFG_* instead of constants.
+// We override pick() calls by patching the live variables.
+function getActivePrompts(which) {
+  initConfig();
+  if (which === 'site')   return CFG_SITE_PROMPTS;
+  if (which === 'dung')   return CFG_DUNG_PROMPTS;
+  if (which === 'seeded') return CFG_SEEDED_PROMPTS;
+}
+function getActiveSparks(which) {
+  initConfig();
+  if (which === 'site') return CFG_SITE_SPARKS;
+  if (which === 'dung') return CFG_DUNG_SPARKS;
+}
+
+// ── Build config UI ──
+function buildConfigUI() {
+  initConfig();
+
+  // Sites
+  const siteTypes = ['feature','danger','treasure'];
+  const siteTypeLabels = { feature:'Feature', danger:'Danger', treasure:'Treasure' };
+  buildConfigSection('cfg-body-sites', siteTypes, siteTypeLabels, 'site');
+
+  // Dungeons
+  const dungTypes = ['monster-t','monster','treasure','special','trapped','empty'];
+  const dungTypeLabels = {
+    'monster-t':'Monster + Treasure', monster:'Monster', treasure:'Treasure',
+    special:'Special', trapped:'Trapped', empty:'Empty',
+  };
+  buildConfigSection('cfg-body-dungeons', dungTypes, dungTypeLabels, 'dung');
+
+  // Seeded prompts
+  buildSeededSection();
+}
+
+function buildConfigSection(containerId, types, labels, which) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  const prompts = which === 'site' ? CFG_SITE_PROMPTS : CFG_DUNG_PROMPTS;
+  const sparks  = which === 'site' ? CFG_SITE_SPARKS  : CFG_DUNG_SPARKS;
+
+  for (const type of types) {
+    const card = document.createElement('div');
+    card.className = 'config-table-card';
+
+    const cssType = type === 'monster-t' ? 'monster-t' : type;
+    const typeColorClass = which === 'site'
+      ? `type-${type}`
+      : `room-type-${cssType}`;
+
+    const spark = which === 'site' ? sparks[type] : sparks[type];
+    const promptArr = prompts[type] || [];
+    const col1 = spark?.col1 || { heading:'', entries:[] };
+    const col2 = spark?.col2 || { heading:'', entries:[] };
+
+    card.innerHTML = `
+      <div class="config-table-header">
+        <span class="config-table-label">
+          <span class="node-type-badge ${typeColorClass}" style="font-size:0.6rem;padding:0.1rem 0.3rem;">${labels[type]}</span>
+        </span>
+        <button class="btn config-reset" style="font-size:0.6rem;padding:0.15rem 0.4rem;"
+          onclick="resetOneTable('${which}','${type}')">↺ Reset</button>
+      </div>
+      <div class="config-table-body">
+        <div>
+          <div class="config-field-label">Prompts (one per line)</div>
+          <textarea class="config-entries-textarea" id="cfg-${which}-${type}-prompts"
+            style="min-height:160px">${promptArr.join('\n')}</textarea>
+        </div>
+        <div>
+          <div class="config-field-label">Spark — ${col1.heading} (one per line)</div>
+          <input class="config-heading-input" id="cfg-${which}-${type}-c1h"
+            value="${col1.heading}" placeholder="Column 1 heading">
+          <textarea class="config-entries-textarea" id="cfg-${which}-${type}-c1"
+            style="min-height:100px">${col1.entries.join('\n')}</textarea>
+        </div>
+        <div>
+          <div class="config-field-label">Spark — ${col2.heading} (one per line)</div>
+          <input class="config-heading-input" id="cfg-${which}-${type}-c2h"
+            value="${col2.heading}" placeholder="Column 2 heading">
+          <textarea class="config-entries-textarea" id="cfg-${which}-${type}-c2"
+            style="min-height:100px">${col2.entries.join('\n')}</textarea>
+        </div>
+      </div>`;
+
+    container.appendChild(card);
+  }
+}
+
+function buildSeededSection() {
+  const container = document.getElementById('cfg-body-seeded');
+  container.innerHTML = '';
+  const siteTypes = ['feature','danger','treasure'];
+  const dungTypes = ['monster-t','monster','treasure','special','trapped','empty'];
+  const dungLabels = {
+    'monster-t':'Monster+Treasure', monster:'Monster', treasure:'Treasure',
+    special:'Special', trapped:'Trapped', empty:'Empty',
+  };
+  const siteLabels = { feature:'Feature', danger:'Danger', treasure:'Treasure' };
+
+  for (const sType of siteTypes) {
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'grid-column: 1 / -1;';
+    const heading = document.createElement('div');
+    heading.className = 'config-field-label';
+    heading.style.cssText = 'font-size:0.72rem;margin:0.5rem 0 0.4rem;border-top:1px solid var(--border);padding-top:0.5rem;';
+    heading.textContent = `Site node type: ${siteLabels[sType]}`;
+    wrapper.appendChild(heading);
+    container.appendChild(wrapper);
+
+    for (const dType of dungTypes) {
+      const arr = CFG_SEEDED_PROMPTS[sType]?.[dType] || [];
+      const card = document.createElement('div');
+      card.className = 'config-table-card';
+      card.innerHTML = `
+        <div class="config-table-header">
+          <span class="config-table-label">${siteLabels[sType]} → ${dungLabels[dType]}</span>
+          <button class="btn config-reset" style="font-size:0.6rem;padding:0.15rem 0.4rem;"
+            onclick="resetSeededTable('${sType}','${dType}')">↺ Reset</button>
+        </div>
+        <div class="config-table-body">
+          <div>
+            <div class="config-field-label">Prompts (one per line)</div>
+            <textarea class="config-entries-textarea" id="cfg-seeded-${sType}-${dType}"
+              style="min-height:120px">${arr.join('\n')}</textarea>
+          </div>
+        </div>`;
+      container.appendChild(card);
+    }
+  }
+}
+
+// ── Apply config ──
+function applyConfig() {
+  initConfig();
+  const siteTypes = ['feature','danger','treasure'];
+  const dungTypes = ['monster-t','monster','treasure','special','trapped','empty'];
+
+  // Read sites
+  for (const type of siteTypes) {
+    const pEl = document.getElementById(`cfg-site-${type}-prompts`);
+    const c1hEl = document.getElementById(`cfg-site-${type}-c1h`);
+    const c1El  = document.getElementById(`cfg-site-${type}-c1`);
+    const c2hEl = document.getElementById(`cfg-site-${type}-c2h`);
+    const c2El  = document.getElementById(`cfg-site-${type}-c2`);
+    if (pEl)  CFG_SITE_PROMPTS[type]           = pEl.value.split('\n').map(s=>s.trim()).filter(Boolean);
+    if (c1hEl) CFG_SITE_SPARKS[type].col1.heading = c1hEl.value.trim();
+    if (c1El)  CFG_SITE_SPARKS[type].col1.entries  = c1El.value.split('\n').map(s=>s.trim()).filter(Boolean);
+    if (c2hEl) CFG_SITE_SPARKS[type].col2.heading = c2hEl.value.trim();
+    if (c2El)  CFG_SITE_SPARKS[type].col2.entries  = c2El.value.split('\n').map(s=>s.trim()).filter(Boolean);
+  }
+
+  // Read dungeons
+  for (const type of dungTypes) {
+    const pEl  = document.getElementById(`cfg-dung-${type}-prompts`);
+    const c1hEl = document.getElementById(`cfg-dung-${type}-c1h`);
+    const c1El  = document.getElementById(`cfg-dung-${type}-c1`);
+    const c2hEl = document.getElementById(`cfg-dung-${type}-c2h`);
+    const c2El  = document.getElementById(`cfg-dung-${type}-c2`);
+    if (pEl)  CFG_DUNG_PROMPTS[type]           = pEl.value.split('\n').map(s=>s.trim()).filter(Boolean);
+    if (c1hEl) CFG_DUNG_SPARKS[type].col1.heading = c1hEl.value.trim();
+    if (c1El)  CFG_DUNG_SPARKS[type].col1.entries  = c1El.value.split('\n').map(s=>s.trim()).filter(Boolean);
+    if (c2hEl) CFG_DUNG_SPARKS[type].col2.heading = c2hEl.value.trim();
+    if (c2El)  CFG_DUNG_SPARKS[type].col2.entries  = c2El.value.split('\n').map(s=>s.trim()).filter(Boolean);
+  }
+
+  // Read seeded
+  for (const sType of siteTypes) {
+    for (const dType of dungTypes) {
+      const el = document.getElementById(`cfg-seeded-${sType}-${dType}`);
+      if (el) {
+        if (!CFG_SEEDED_PROMPTS[sType]) CFG_SEEDED_PROMPTS[sType] = {};
+        CFG_SEEDED_PROMPTS[sType][dType] = el.value.split('\n').map(s=>s.trim()).filter(Boolean);
+      }
+    }
+  }
+
+  showConfigStatus('✓ Changes applied — next generation will use updated tables.');
+}
+
+function resetOneTable(which, type) {
+  initConfig();
+  if (which === 'site') {
+    CFG_SITE_PROMPTS[type] = deepClone(SITE_PROMPTS[type]);
+    CFG_SITE_SPARKS[type]  = deepClone(SPARK_TABLES[type]);
+  } else {
+    CFG_DUNG_PROMPTS[type] = deepClone(DUNG_PROMPTS[type]);
+    CFG_DUNG_SPARKS[type]  = deepClone(DUNG_SPARK[type]);
+  }
+  buildConfigSection(
+    which === 'site' ? 'cfg-body-sites' : 'cfg-body-dungeons',
+    which === 'site' ? ['feature','danger','treasure'] : ['monster-t','monster','treasure','special','trapped','empty'],
+    which === 'site'
+      ? { feature:'Feature', danger:'Danger', treasure:'Treasure' }
+      : { 'monster-t':'Monster + Treasure', monster:'Monster', treasure:'Treasure', special:'Special', trapped:'Trapped', empty:'Empty' },
+    which
+  );
+}
+
+function resetSeededTable(sType, dType) {
+  initConfig();
+  if (!CFG_SEEDED_PROMPTS[sType]) CFG_SEEDED_PROMPTS[sType] = {};
+  CFG_SEEDED_PROMPTS[sType][dType] = deepClone(SEEDED_PROMPTS[sType]?.[dType] || []);
+  buildSeededSection();
+}
+
+function resetAllConfig() {
+  CFG_SITE_PROMPTS   = deepClone(SITE_PROMPTS);
+  CFG_SITE_SPARKS    = deepClone(SPARK_TABLES);
+  CFG_DUNG_PROMPTS   = deepClone(DUNG_PROMPTS);
+  CFG_DUNG_SPARKS    = deepClone(DUNG_SPARK);
+  CFG_SEEDED_PROMPTS = deepClone(SEEDED_PROMPTS);
+  buildConfigUI();
+  showConfigStatus('↺ All tables reset to defaults.');
+}
+
+function showConfigStatus(msg) {
+  const el = document.getElementById('config-status');
+  el.textContent = msg;
+  el.classList.add('visible');
+  setTimeout(() => el.classList.remove('visible'), 3000);
+}
+
+// ── Toggle collapsible sections ──
+function toggleConfigSection(header) {
+  const section = header.parentElement;
+  const body = section.querySelector('.config-section-body');
+  const isGrid = body.style.gridTemplateColumns || body.dataset.displayType === 'grid';
+  section.classList.toggle('collapsed');
+  if (section.classList.contains('collapsed')) {
+    body.style.display = 'none';
+  } else {
+    body.style.display = isGrid ? 'grid' : '';
+  }
+}
+
+// ── JSON Download ──
+function downloadConfigJSON() {
+  initConfig();
+  const dungTypes = ['monster-t','monster','treasure','special','trapped','empty'];
+  const siteTypes = ['feature','danger','treasure'];
+
+  const out = { sites: {}, dungeons: {}, seeded: {} };
+
+  for (const t of siteTypes) {
+    out.sites[t] = {
+      prompts: CFG_SITE_PROMPTS[t],
+      spark: {
+        col1: { heading: CFG_SITE_SPARKS[t].col1.heading, entries: CFG_SITE_SPARKS[t].col1.entries },
+        col2: { heading: CFG_SITE_SPARKS[t].col2.heading, entries: CFG_SITE_SPARKS[t].col2.entries },
+      },
+    };
+  }
+  for (const t of dungTypes) {
+    out.dungeons[t] = {
+      prompts: CFG_DUNG_PROMPTS[t],
+      spark: {
+        col1: { heading: CFG_DUNG_SPARKS[t].col1.heading, entries: CFG_DUNG_SPARKS[t].col1.entries },
+        col2: { heading: CFG_DUNG_SPARKS[t].col2.heading, entries: CFG_DUNG_SPARKS[t].col2.entries },
+      },
+    };
+  }
+  for (const sType of siteTypes) {
+    out.seeded[sType] = {};
+    for (const dType of dungTypes) {
+      out.seeded[sType][dType] = CFG_SEEDED_PROMPTS[sType]?.[dType] || [];
+    }
+  }
+
+  const blob = new Blob([JSON.stringify(out, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'generator-config.json';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+// ── JSON Upload ──
+function handleConfigUpload(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    try {
+      const data = JSON.parse(e.target.result);
+      initConfig();
+      let updated = [];
+
+      if (data.sites) {
+        for (const [type, val] of Object.entries(data.sites)) {
+          if (!CFG_SITE_PROMPTS[type]) continue;
+          if (val.prompts)       { CFG_SITE_PROMPTS[type] = val.prompts; updated.push(`sites/${type} prompts`); }
+          if (val.spark?.col1)   { CFG_SITE_SPARKS[type].col1 = val.spark.col1; updated.push(`sites/${type} spark col1`); }
+          if (val.spark?.col2)   { CFG_SITE_SPARKS[type].col2 = val.spark.col2; updated.push(`sites/${type} spark col2`); }
+        }
+      }
+      if (data.dungeons) {
+        for (const [type, val] of Object.entries(data.dungeons)) {
+          if (!CFG_DUNG_PROMPTS[type]) continue;
+          if (val.prompts)       { CFG_DUNG_PROMPTS[type] = val.prompts; updated.push(`dungeons/${type} prompts`); }
+          if (val.spark?.col1)   { CFG_DUNG_SPARKS[type].col1 = val.spark.col1; updated.push(`dungeons/${type} spark col1`); }
+          if (val.spark?.col2)   { CFG_DUNG_SPARKS[type].col2 = val.spark.col2; updated.push(`dungeons/${type} spark col2`); }
+        }
+      }
+      if (data.seeded) {
+        for (const [sType, rooms] of Object.entries(data.seeded)) {
+          if (!CFG_SEEDED_PROMPTS[sType]) CFG_SEEDED_PROMPTS[sType] = {};
+          for (const [dType, arr] of Object.entries(rooms)) {
+            CFG_SEEDED_PROMPTS[sType][dType] = arr;
+            updated.push(`seeded/${sType}/${dType}`);
+          }
+        }
+      }
+
+      buildConfigUI();
+      showConfigStatus(`✓ Loaded: ${updated.length} table(s) updated. Click Apply to confirm.`);
+    } catch (err) {
+      showConfigStatus('✗ Invalid JSON file.');
+    }
+    event.target.value = '';
+  };
+  reader.readAsText(file);
+}
+
+// ── Redraw canvas on resize ──
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => {
+    if (currentSite) drawSiteCanvas(currentSite);
+    if (currentDungeon) drawDungeonCanvas(currentDungeon);
+  }, 150);
+});
+</script>
+</body>
+</html>
