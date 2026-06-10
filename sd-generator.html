@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -536,6 +537,25 @@
   }
   .node-desc::placeholder { color: var(--muted); opacity: 0.6; font-style: italic; }
   .node-desc:focus { border-bottom-color: var(--accent); }
+
+  /* ── EDIT ICON WRAPPER ── */
+  .editable-wrap {
+    position: relative;
+    width: 100%;
+  }
+  .editable-wrap .edit-icon {
+    position: absolute;
+    right: 0;
+    top: 0.15rem;
+    font-size: 0.65rem;
+    color: var(--border);
+    pointer-events: none;
+    user-select: none;
+    line-height: 1;
+  }
+  .editable-wrap:focus-within .edit-icon { color: var(--accent); }
+  .editable-wrap input, .editable-wrap textarea { padding-right: 1.2rem; }
+
 
   /* ── SCROLLBAR ── */
   .node-cards::-webkit-scrollbar { width: 4px; }
@@ -1642,14 +1662,20 @@ function renderSiteOutput(site) {
           ${entryTag}
           <button class="btn-expand" onclick="expandNodeToDungeon(${node.id - 1})" title="Expand this node into a dungeon">⤵ Expand</button>
         </div>
-        <input class="node-title" type="text"
-          placeholder="Title…"
-          value="${node.title}"
-          oninput="saveSiteTitle(${node.id - 1}, this.value)">
-        <textarea class="node-desc" rows="2"
-          placeholder="Description…"
-          oninput="saveSiteDesc(${node.id - 1}, this.value); autoResize(this)"
-          onfocus="autoResize(this)">${node.desc}</textarea>
+        <div class="editable-wrap">
+          <input class="node-title" type="text"
+            placeholder="Title…"
+            value="${node.title}"
+            oninput="saveSiteTitle(${node.id - 1}, this.value)">
+          <span class="edit-icon">✎</span>
+        </div>
+        <div class="editable-wrap">
+          <textarea class="node-desc" rows="2"
+            placeholder="Description…"
+            oninput="saveSiteDesc(${node.id - 1}, this.value); autoResize(this)"
+            onfocus="autoResize(this)">${node.desc}</textarea>
+          <span class="edit-icon">✎</span>
+        </div>
         ${promptHTML}
       </div>`;
   }
@@ -2341,14 +2367,20 @@ function renderDungeonOutput(dungeon) {
           <span class="node-type-badge room-type-${cssType}">${ROOM_TYPE_LABELS[room.type]}</span>
           ${entTag}
         </div>
-        <input class="node-title" type="text"
-          placeholder="Title…"
-          value="${room.title}"
-          oninput="saveDungTitle(${room.id - 1}, this.value)">
-        <textarea class="node-desc" rows="2"
-          placeholder="Description…"
-          oninput="saveDungDesc(${room.id - 1}, this.value); autoResize(this)"
-          onfocus="autoResize(this)">${room.desc}</textarea>
+        <div class="editable-wrap">
+          <input class="node-title" type="text"
+            placeholder="Title…"
+            value="${room.title}"
+            oninput="saveDungTitle(${room.id - 1}, this.value)">
+          <span class="edit-icon">✎</span>
+        </div>
+        <div class="editable-wrap">
+          <textarea class="node-desc" rows="2"
+            placeholder="Description…"
+            oninput="saveDungDesc(${room.id - 1}, this.value); autoResize(this)"
+            onfocus="autoResize(this)">${room.desc}</textarea>
+          <span class="edit-icon">✎</span>
+        </div>
         ${promptHTML}
       </div>`;
   }
